@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}صفحه اصلی{% endblock %}
+{% block content %}
+<div class="hero text-center">
+  <h1><i class="bi bi-tools"></i> شرکت قطعه سازان ايتوک</h1>
+  <p class="fs-5">سیستم مدیریت درخواست‌های تعمیر و نگهداری</p>
+</div>
+
+{% set icons = {
+  'ثبت درخواست خرابی': 'bi-exclamation-triangle',
+  'ثبت بازدید روزانه': 'bi-clipboard-check',
+  'بررسی و انجام': 'bi-hourglass-split',
+  'ثبت بازدید پیشگیرانه/پیش‌بینانه': 'bi-gear',
+  'ثبت دستگاه جدید': 'bi-hdd-stack',
+  'ثبت مجری جدید': 'bi-person-badge',
+  'ثبت کالا جدید': 'bi-box-seam',
+  'جستجوی درخواست‌ها': 'bi-card-list',
+  'کارهای انجام شده مجری‌ها': 'bi-people',
+  'مواد و قطعات مصرفی': 'bi-box2',
+  'لیست بازدیدهای روزانه': 'bi-clipboard-data',
+  'لیست بازدیدهای پیشگیرانه/پیش‌بینانه': 'bi-clipboard-data',
+  'گزارش نفر ساعت': 'bi-clock-history',
+  'محاسبه MTBF / MTTR': 'bi-activity',
+  'پیشنهاد زمان‌بندی بازدید': 'bi-calendar2-week',
+  'شاخص‌های سازمانی': 'bi-bar-chart-line',
+} %}
+
+{% set cards = [] %}
+{% if current_user.role in ('admin', 'requester', 'worker') %}
+  {% set _ = cards.append((url_for('daily_inspection_new'), 'ثبت بازدید روزانه', 'ثبت چک‌لیست بازدید روزانه دستگاه قبل از شروع به کار')) %}
+{% endif %}
+{% if current_user.role in ('admin', 'requester') %}
+  {% set _ = cards.append((url_for('request_new'), 'ثبت درخواست خرابی', 'ثبت اولیه‌ی یک خرابی/درخواست تعمیر برای یک دستگاه')) %}
+{% endif %}
+{% if current_user.role in ('admin', 'reviewer') %}
+  {% set _ = cards.append((url_for('requests_pending'), 'بررسی و انجام', 'بررسی درخواست‌های در انتظار و تکمیل اطلاعات کار انجام‌شده')) %}
+  {% set _ = cards.append((url_for('preventive_inspection_new'), 'ثبت بازدید پیشگیرانه/پیش‌بینانه', 'ثبت چک‌لیست تعمیرات دوره‌ای و پیش‌بینانه دستگاه‌ها')) %}
+{% endif %}
+{% if current_user.role == 'admin' %}
+  {% set _ = cards.append((url_for('devices'), 'ثبت دستگاه جدید', 'مدیریت دستگاه‌های ثبت شده در سیستم')) %}
+  {% set _ = cards.append((url_for('contractors'), 'ثبت مجری جدید', 'مدیریت لیست مجری‌های تعمیرکار')) %}
+  {% set _ = cards.append((url_for('goods'), 'ثبت کالا جدید', 'مدیریت کالاها و قطعات یدکی')) %}
+{% endif %}
+{% if current_user.role != 'worker' %}
+{% set _ = cards.append((url_for('requests_search'), 'جستجوی درخواست‌ها', 'جستجو و مشاهده جزئیات درخواست‌های ثبت شده')) %}
+{% set _ = cards.append((url_for('contractor_work'), 'کارهای انجام شده مجری‌ها', 'گزارش کارکرد مجری‌ها بر اساس تاریخ')) %}
+{% set _ = cards.append((url_for('consumables'), 'مواد و قطعات مصرفی', 'نمایش کل مواد و قطعات مصرف شده')) %}
+{% set _ = cards.append((url_for('daily_inspection_list'), 'لیست بازدیدهای روزانه', 'مشاهده‌ی سوابق بازدید روزانه دستگاه‌ها')) %}
+{% set _ = cards.append((url_for('preventive_inspection_list'), 'لیست بازدیدهای پیشگیرانه/پیش‌بینانه', 'مشاهده‌ی سوابق تعمیرات دوره‌ای دستگاه‌ها')) %}
+{% set _ = cards.append((url_for('report_hours'), 'گزارش نفر ساعت', 'گزارش نفرساعت درخواست‌های تعمیر')) %}
+{% set _ = cards.append((url_for('report_mtbf'), 'محاسبه MTBF / MTTR', 'شاخص‌های قابلیت اطمینان دستگاه‌ها')) %}
+{% set _ = cards.append((url_for('maintenance_recommendations'), 'پیشنهاد زمان‌بندی بازدید', 'تاریخ پیشنهادی بازدید پیشگیرانه/پیش‌بینانه بر اساس تاریخچه‌ی خرابی‌ها')) %}
+{% set _ = cards.append((url_for('organizational_kpi'), 'شاخص‌های سازمانی', 'گزارش ماهانه توقفات، هزینه، MTTR/MTBF و خرابی‌های تکراری')) %}
+{% endif %}
+
+<div class="row row-cols-1 row-cols-md-3 g-4">
+  {% for href, title, desc in cards %}
+  <div class="col">
+    <div class="card dash-card">
+      <div class="card-body">
+        <div class="icon-wrap"><i class="bi {{ icons.get(title, 'bi-square') }}"></i></div>
+        <h5 class="card-title">{{ title }}</h5>
+        <p class="card-text text-muted">{{ desc }}</p>
+        <a href="{{ href }}" class="btn btn-primary">ورود <i class="bi bi-arrow-left"></i></a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

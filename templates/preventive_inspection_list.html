@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}بازدیدهای پیشگیرانه/پیش‌بینانه{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>لیست بازدیدهای پیشگیرانه و پیش‌بینانه</span>
+    <a class="btn btn-success btn-sm" href="{{ url_for('preventive_inspection_export', device=request.args.get('device',''), from=request.args.get('from',''), to=request.args.get('to','')) }}"><i class="bi bi-file-earmark-excel"></i> دریافت Excel</a>
+  </div>
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end mb-3">
+      <div class="col-md-3">
+        <label class="form-label">کد دستگاه</label>
+        <input type="text" name="device" class="form-control" value="{{ request.args.get('device','') }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">از تاریخ</label>
+        <input type="text" name="from" class="form-control jalali-date" value="{{ request.args.get('from','') }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">تا تاریخ</label>
+        <input type="text" name="to" class="form-control jalali-date" value="{{ request.args.get('to','') }}">
+      </div>
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-primary w-100">جستجو</button>
+      </div>
+    </form>
+
+    <div class="table-responsive">
+      <table class="table table-striped table-bordered">
+        <thead><tr>
+          <th>تاریخ</th><th>نوع</th><th>کد دستگاه</th><th>نام دستگاه</th><th>عملیات</th>
+          <th>وضعیت کلی</th><th>موارد نیاز به بررسی</th><th>بازدید بعدی</th><th>بازدیدکننده</th>
+        </tr></thead>
+        <tbody>
+          {% for e in entries %}
+          <tr class="{{ 'table-warning' if e.problem_count > 0 }}">
+            <td>{{ e.tarikh }}</td><td>{{ e.noe_bazdid }}</td><td>{{ e.kod_dastgah }}</td><td>{{ e.nam_dastgah }}</td><td class="text-nowrap">
+              <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('preventive_inspection_detail', inspection_id=e.id) }}"><i class="bi bi-eye"></i> مشاهده</a>
+              {% if current_user.role in ('admin', 'reviewer') %}
+              <a class="btn btn-outline-primary btn-sm" href="{{ url_for('preventive_inspection_edit', inspection_id=e.id) }}"><i class="bi bi-pencil"></i> ویرایش</a>
+              {% endif %}
+            </td>
+            <td>{{ e.vaziat_kolli or '-' }}</td>
+            <td>
+              {% if e.problem_count == 0 %}<span class="badge bg-success">همه موارد سالم</span>
+              {% else %}
+                <span class="badge bg-warning text-dark">{{ e.problem_count }} مورد</span>
+                <div class="small text-muted">{{ e.problems | join('، ') }}</div>
+              {% endif %}
+            </td>
+            <td>{{ e.tarikh_bazdid_badi or '-' }}</td>
+            <td>{{ e.bazresh_konande or '-' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="9" class="text-muted">بازدیدی ثبت نشده است.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

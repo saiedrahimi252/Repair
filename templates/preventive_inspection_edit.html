@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}ویرایش بازدید پیشگیرانه و پیش‌بینانه{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-9">
+    <div class="card">
+      <div class="card-header">ویرایش بازدید پیشگیرانه / پیش‌بینانه #{{ entry.id }}</div>
+      <div class="card-body">
+        <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="row g-3 mb-3">
+            <div class="col-md-4 position-relative">
+              <label class="form-label required">کد دستگاه</label>
+              <input type="text" name="codedastgah" id="codedastgah" class="form-control" required autocomplete="off" value="{{ entry.kod_dastgah }}">
+              <div id="codedastgah_suggestions" class="list-group position-absolute w-100" style="z-index:1000; display:none;"></div>
+            </div>
+            <div class="col-md-4 position-relative">
+              <label class="form-label required">نام دستگاه</label>
+              <input type="text" name="namdastgah" id="namdastgah" class="form-control" required autocomplete="off" value="{{ entry.nam_dastgah }}">
+              <div id="namdastgah_suggestions" class="list-group position-absolute w-100" style="z-index:1000; display:none;"></div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label required">نوع بازدید</label>
+              <select name="noe_bazdid" class="form-select" required>
+                <option value="پیشگیرانه" {% if entry.noe_bazdid == 'پیشگیرانه' %}selected{% endif %}>پیشگیرانه</option>
+                <option value="پیش‌بینانه" {% if entry.noe_bazdid == 'پیش‌بینانه' %}selected{% endif %}>پیش‌بینانه</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label required">تاریخ بازدید</label>
+              <input type="text" name="tarikh" class="form-control jalali-date" required value="{{ entry.tarikh }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">تاریخ بازدید بعدی</label>
+              <input type="text" name="tarikh_bazdid_badi" class="form-control jalali-date" value="{{ entry.tarikh_bazdid_badi or '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">نام بازدیدکننده</label>
+              {% if current_user.role == 'admin' %}
+              <input type="text" name="bazresh_konande" class="form-control" value="{{ entry.bazresh_konande or '' }}">
+              {% else %}
+              <input type="text" class="form-control" value="{{ current_user.full_name or current_user.username }}" readonly>
+              <input type="hidden" name="bazresh_konande" value="{{ current_user.full_name or current_user.username }}">
+              {% endif %}
+            </div>
+          </div>
+          <label class="form-label">موارد بازدید</label>
+          <table class="table table-bordered">
+            <tbody>
+              {% for key, label in checklist %}
+              <tr>
+                <td class="w-75">{{ label }}</td>
+                <td class="text-center"><div class="form-check form-switch d-flex justify-content-center">
+                  <input class="form-check-input" type="checkbox" name="chk_{{ key }}" id="chk_{{ key }}" {% if entry[key] %}checked{% endif %} style="transform: scale(1.4);">
+                </div></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">وضعیت کلی دستگاه پس از بازدید</label>
+              <select name="vaziat_kolli" class="form-select">
+                {% for s in status_options %}<option value="{{ s }}" {% if entry.vaziat_kolli == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">توضیحات</label>
+              <textarea name="tozihat" class="form-control" rows="2">{{ entry.tozihat or '' }}</textarea>
+            </div>
+          </div>
+          <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-primary flex-fill">ذخیره تغییرات</button>
+            <a href="{{ url_for('preventive_inspection_list') }}" class="btn btn-secondary">انصراف</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}<script>attachDeviceAutocomplete('codedastgah', 'namdastgah');</script>{% endblock %}

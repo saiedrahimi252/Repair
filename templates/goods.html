@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}ثبت کالا جدید{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header">ثبت / ویرایش کالا</div>
+      <div class="card-body">
+        <form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="original_cod" value="{{ edit.cod if edit else '' }}">
+          <div class="mb-2">
+            <label class="form-label">کد کالا</label>
+            <input type="text" class="form-control" value="{{ edit.cod if edit else next_cod }}" readonly>
+            <div class="form-text">کد کالا به‌صورت خودکار تولید می‌شود.</div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label required">نام کالا</label>
+            <input type="text" name="name" id="goodsName" list="goodsNameList" class="form-control" required autocomplete="off" value="{{ edit.name if edit else '' }}">
+            <datalist id="goodsNameList">
+              {% for g in goods_list %}<option value="{{ g.name }}">{% endfor %}
+            </datalist>
+            <div id="goodsNameWarning" class="form-text text-warning" style="display:none;"></div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">واحد</label>
+            <input type="text" name="vahed" class="form-control" value="{{ edit.vahed if edit else '' }}">
+          </div>
+          <button type="submit" class="btn btn-primary w-100">ثبت</button>
+          {% if edit %}<a href="{{ url_for('goods') }}" class="btn btn-secondary w-100 mt-2">انصراف</a>{% endif %}
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header">کالاهای ثبت شده</div>
+      <div class="card-body table-responsive">
+        <table class="table table-striped table-bordered">
+          <thead><tr><th>کد</th><th>نام کالا</th><th>واحد</th><th></th></tr></thead>
+          <tbody>
+            {% for g in goods_list %}
+            <tr>
+              <td>{{ g.cod }}</td><td>{{ g.name }}</td><td>{{ g.vahed }}</td>
+              <td class="text-nowrap">
+                <a href="{{ url_for('goods', edit=g.cod) }}" class="btn btn-sm btn-outline-primary">ویرایش</a>
+                <form method="post" action="{{ url_for('goods_delete', cod=g.cod) }}" class="d-inline" onsubmit="return confirm('حذف شود؟');">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">حذف</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-muted">هنوز کالایی ثبت نشده است.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  var allNames = [{% for g in goods_list %}"{{ g.name|e }}"{{ "," if not loop.last }}{% endfor %}];
+  var input = document.getElementById('goodsName');
+  var warning = document.getElementById('goodsNameWarning');
+
+  function normalizeFa(text) {
+    return (text || '')
+      .replace(/\u064a|\u0649/g, '\u06cc')  // ي/ى عربی -> ی فارسی
+      .replace(/\u0643/g, '\u06a9')          // ك عربی -> ک فارسی
+      .replace(/\u0629/g, '\u0647')          // ة -> ه
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  input.addEventListener('input', function () {
+    var value = normalizeFa(input.value);
+    if (!value) { warning.style.display = 'none'; return; }
+    var similar = allNames.filter(function (n) {
+      var normalized = normalizeFa(n);
+      return normalized.indexOf(value) !== -1 || value.indexOf(normalized) !== -1;
+    });
+    if (similar.length > 0) {
+      warning.textContent = 'موارد مشابه موجود: ' + similar.slice(0, 5).join('، ');
+      warning.style.display = 'block';
+    } else {
+      warning.style.display = 'none';
+    }
+  });
+})();
+</script>
+{% endblock %}

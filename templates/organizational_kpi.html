@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}گزارش شاخص‌های سازمانی{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span><i class="bi bi-bar-chart-line"></i> گزارش شاخص‌های سازمانی — نگهداری و تعمیرات</span>
+    <div class="d-flex gap-2 align-items-center">
+      <form method="get" class="d-flex gap-2 align-items-center">
+        <label class="form-label mb-0">سال:</label>
+        <input type="number" name="year" value="{{ year }}" class="form-control form-control-sm" style="width:90px;">
+        <button type="submit" class="btn btn-sm btn-outline-secondary">نمایش</button>
+      </form>
+      <a href="{{ url_for('organizational_kpi_export', year=year) }}" class="btn btn-sm btn-outline-success"><i class="bi bi-file-earmark-excel"></i> خروجی اکسل</a>
+    </div>
+  </div>
+  <div class="card-body">
+    <p class="text-muted small">
+      مبنای MTBF: <strong>۴۷۵ ساعت به ازای هر دستگاه دارای خرابی در همان ماه</strong>.
+      فقط دستگاه‌هایی که در همان ماه خرابی اتفاقی داشته‌اند در محاسبه MTBF لحاظ می‌شوند.
+      دستگاه‌های بدون خرابی آن ماه در محاسبه وارد نمی‌شوند.<br>
+      چهار شاخص اول به‌طور خودکار از داده‌های ثبت‌شده در سیستم محاسبه می‌شوند.
+      فقط ردیف «هزینه تعمیرات» چون در سیستم ثبت نمی‌شود، باید دستی وارد شود
+      {% if not can_edit_cost %}(فقط مدیر سیستم می‌تواند این مقادیر را وارد یا ویرایش کند){% endif %}.
+    </p>
+
+    <form method="post" action="{{ url_for('organizational_kpi_save_costs') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="year" value="{{ year }}">
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover align-middle">
+          <thead>
+            <tr>
+              <th style="min-width:220px;">شاخص</th>
+              {% for m in monthly %}<th>{{ m.month_name }}</th>{% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="text-start fw-bold">توقفات پیش‌بینی‌نشده (ساعت)</td>
+              {% for m in monthly %}<td>{{ m.downtime }}</td>{% endfor %}
+            </tr>
+            <tr class="table-light">
+              <td class="text-start fw-bold">هزینه تعمیرات</td>
+              {% for m in monthly %}
+              <td>
+                {% if can_edit_cost %}
+                <input type="text" inputmode="numeric" name="cost_{{ m.month }}" class="form-control form-control-sm text-center"
+                       value="{{ m.cost if m.cost is not none else '' }}" placeholder="—">
+                {% else %}
+                {{ "{:,.0f}".format(m.cost) if m.cost is not none else "-" }}
+                {% endif %}
+              </td>
+              {% endfor %}
+            </tr>
+            <tr>
+              <td class="text-start fw-bold">MTTR</td>
+              {% for m in monthly %}<td>{{ m.mttr if m.mttr is not none else '-' }}</td>{% endfor %}
+            </tr>
+            <tr>
+              <td class="text-start fw-bold">MTBF</td>
+              {% for m in monthly %}<td>{{ m.mtbf if m.mtbf is not none else '-' }}</td>{% endfor %}
+            </tr>
+            <tr>
+              <td class="text-start fw-bold">تعداد خرابی‌های تکراری</td>
+              {% for m in monthly %}<td>{{ m.tekrary }}</td>{% endfor %}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {% if can_edit_cost %}
+      <button type="submit" class="btn btn-primary"><i class="bi bi-save"></i> ذخیره هزینه‌های تعمیرات</button>
+      {% endif %}
+    </form>
+  </div>
+</div>
+{% endblock %}

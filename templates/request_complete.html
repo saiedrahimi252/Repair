@@ -1,0 +1,232 @@
+{% extends "base.html" %}
+{% block title %}بررسی و تکمیل درخواست {{ row.shomare_darkhast }}{% endblock %}
+{% block content %}
+
+<div class="card mb-3">
+  <div class="card-header">اطلاعات درخواست ثبت شده (شماره {{ row.shomare_darkhast }})</div>
+  <div class="card-body">
+    <table class="table table-bordered table-sm">
+      <tbody>
+        <tr><th class="w-25">تاریخ / ساعت درخواست</th><td>{{ row.tarikhdarkhast }} - {{ row.timedarkhast }}</td></tr>
+        <tr><th>درخواست کننده</th><td>{{ row.darkhastkonande or "-" }}</td></tr>
+        <tr><th>کد / نام دستگاه</th><td>{{ row.codedastgah }} - {{ row.namdastgah }}</td></tr>
+        <tr><th>نوع کار درخواستی</th><td>{{ work_type_label }}</td></tr>
+        <tr><th>شرح خرابی</th><td>{{ row.sharhenaghs }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<form method="post" id="completeForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="card">
+  <div class="card-header">بررسی و تکمیل کار انجام شده</div>
+  <div class="card-body">
+
+    <ul class="nav nav-tabs" role="tablist">
+      <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-main" type="button">شرح و زمان‌بندی کار</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-contractors" type="button">مجری‌های انجام کار</button></li>
+      <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-materials" type="button">مواد و قطعات مصرفی</button></li>
+    </ul>
+
+    <div class="tab-content pt-4">
+      <div class="tab-pane fade show active" id="tab-main">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label">شرح کار انجام شده</label>
+            <textarea name="sharhekareanjamshode" class="form-control" rows="3">{{ row.sharhekareanjamshode or "" }}</textarea>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">واحد مرتبط با کار انجام شده</label><br>
+            {% for key, label in work_units %}
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="checkbox" name="dep_{{ key }}" id="dep_{{ key }}" {{ "checked" if row[key] }}>
+              <label class="form-check-label" for="dep_{{ key }}">{{ label }}</label>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">علل تاخیر در عملیات تعمیرات</label><br>
+            {% for key, label in delay_causes %}
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="checkbox" name="dep_{{ key }}" id="dep_{{ key }}" {{ "checked" if row[key] }}>
+              <label class="form-check-label" for="dep_{{ key }}">{{ label }}</label>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="col-md-3">
+            <label class="form-label">تاریخ شروع</label>
+            <input type="text" name="tarikhstart" class="form-control jalali-date" value="{{ row.tarikhstart or today }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">ساعت شروع</label>
+            <input type="text" name="timestart" class="form-control" value="{{ row.timestart or now }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">تاریخ اتمام</label>
+            <input type="text" name="tarikhend" class="form-control jalali-date" value="{{ row.tarikhend or today }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">ساعت اتمام</label>
+            <input type="text" name="timeEnd" class="form-control" value="{{ row.timeEnd or now }}">
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">میزان ساعت توقف دستگاه</label>
+            <input type="text" name="timetavaghofdastgah" class="form-control" value="{{ row.timetavaghofdastgah or '' }}">
+          </div>
+          <div class="col-12">
+            <label class="form-label">توضیحات</label>
+            <textarea name="tozihat" class="form-control" rows="2">{{ row.tozihat or "" }}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane fade" id="tab-contractors">
+        <div class="row g-2 align-items-end mb-3">
+          <div class="col-md-4">
+            <label class="form-label">مجری</label>
+            <select id="contractorSelect" class="form-select">
+              <option value="">-- انتخاب کنید --</option>
+              {% for c in contractors %}<option value="{{ c.cod }}" data-name="{{ c.name }}">{{ c.name }} ({{ c.cod }})</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">تاریخ</label>
+            <input type="text" id="contractorDate" class="form-control jalali-date" value="{{ today }}">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">نفر ساعت</label>
+            <input type="text" id="contractorHours" class="form-control">
+          </div>
+          <div class="col-md-3">
+            <button type="button" class="btn btn-outline-primary w-100" onclick="addContractorRow()">افزودن به لیست</button>
+          </div>
+        </div>
+        <table class="table table-bordered" id="contractorTable">
+          <thead><tr><th>کد مجری</th><th>نام مجری</th><th>تاریخ</th><th>نفر ساعت</th><th></th></tr></thead>
+          <tbody>
+            {% for m in existing_mojry %}
+            <tr>
+              <td>{{ m.kod_mojri }}</td><td>{{ m.nam_mojri }}</td><td>{{ m.tarikh }}</td><td>{{ m.saat }}</td>
+              <td><span class="text-muted small">قبلاً ثبت شده</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="tab-pane fade" id="tab-materials">
+        <div class="row g-2 align-items-end mb-3">
+          <div class="col-md-5">
+            <label class="form-label">کالا</label>
+            <select id="materialSelect" class="form-select">
+              <option value="">-- انتخاب کنید --</option>
+              {% for g in goods_list %}<option value="{{ g.cod }}" data-name="{{ g.name }}" data-vahed="{{ g.vahed or '' }}">{{ g.name }} ({{ g.cod }})</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">تعداد</label>
+            <input type="text" id="materialQty" class="form-control">
+          </div>
+          <div class="col-md-4">
+            <button type="button" class="btn btn-outline-primary w-100" onclick="addMaterialRow()">افزودن به لیست</button>
+          </div>
+        </div>
+        <table class="table table-bordered" id="materialTable">
+          <thead><tr><th>کد کالا</th><th>نام کالا</th><th>تعداد</th><th>واحد</th><th></th></tr></thead>
+          <tbody>
+            {% for m in existing_materials %}
+            <tr>
+              <td>{{ m.code }}</td><td>{{ m.name }}</td><td>{{ m.qty }}</td><td>{{ m.vahed }}</td>
+              <td><span class="text-muted small">قبلاً ثبت شده</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="hiddenInputs"></div>
+    <button type="submit" class="btn btn-success mt-3">تکمیل و بستن درخواست</button>
+  </div>
+</div>
+</form>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+var contractorRows = [];
+var materialRows = [];
+
+function refreshHidden() {
+  var box = document.getElementById('hiddenInputs');
+  box.innerHTML = '';
+  contractorRows.forEach(function (r) {
+    ['cod', 'name', 'date', 'hours'].forEach(function (f) {
+      var inp = document.createElement('input');
+      inp.type = 'hidden'; inp.name = 'contractor_' + f + '[]'; inp.value = r[f];
+      box.appendChild(inp);
+    });
+  });
+  materialRows.forEach(function (r) {
+    ['cod', 'name', 'qty', 'vahed'].forEach(function (f) {
+      var inp = document.createElement('input');
+      inp.type = 'hidden'; inp.name = 'material_' + f + '[]'; inp.value = r[f];
+      box.appendChild(inp);
+    });
+  });
+}
+
+function addContractorRow() {
+  var sel = document.getElementById('contractorSelect');
+  if (!sel.value) { alert('یک مجری انتخاب کنید'); return; }
+  var hours = document.getElementById('contractorHours').value.trim();
+  if (!hours) { alert('نفر ساعت را وارد کنید'); return; }
+  var row = {
+    cod: sel.value, name: sel.options[sel.selectedIndex].dataset.name,
+    date: document.getElementById('contractorDate').value, hours: hours
+  };
+  contractorRows.push(row);
+  var tr = document.createElement('tr');
+  tr.innerHTML = '<td>' + row.cod + '</td><td>' + row.name + '</td><td>' + row.date + '</td><td>' + row.hours +
+    '</td><td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeContractorRow(this,' + (contractorRows.length - 1) + ')">حذف</button></td>';
+  document.querySelector('#contractorTable tbody').appendChild(tr);
+  document.getElementById('contractorHours').value = '';
+  refreshHidden();
+}
+function removeContractorRow(btn, idx) {
+  contractorRows[idx] = null;
+  btn.closest('tr').remove();
+  contractorRows = contractorRows.filter(function (r) { return r !== null; });
+  refreshHidden();
+}
+
+function addMaterialRow() {
+  var sel = document.getElementById('materialSelect');
+  if (!sel.value) { alert('یک کالا انتخاب کنید'); return; }
+  var qty = document.getElementById('materialQty').value.trim();
+  if (!qty) { alert('تعداد را وارد کنید'); return; }
+  var row = {
+    cod: sel.value, name: sel.options[sel.selectedIndex].dataset.name,
+    qty: qty, vahed: sel.options[sel.selectedIndex].dataset.vahed
+  };
+  materialRows.push(row);
+  var tr = document.createElement('tr');
+  tr.innerHTML = '<td>' + row.cod + '</td><td>' + row.name + '</td><td>' + row.qty + '</td><td>' + row.vahed +
+    '</td><td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeMaterialRow(this,' + (materialRows.length - 1) + ')">حذف</button></td>';
+  document.querySelector('#materialTable tbody').appendChild(tr);
+  document.getElementById('materialQty').value = '';
+  refreshHidden();
+}
+function removeMaterialRow(btn, idx) {
+  materialRows[idx] = null;
+  btn.closest('tr').remove();
+  materialRows = materialRows.filter(function (r) { return r !== null; });
+  refreshHidden();
+}
+</script>
+{% endblock %}

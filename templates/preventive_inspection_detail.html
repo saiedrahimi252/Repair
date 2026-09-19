@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}مشاهده بازدید پیشگیرانه/پیش‌بینانه{% endblock %}
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span>مشاهده بازدید پیشگیرانه / پیش‌بینانه</span>
+    <div>
+      {% if current_user.role in ('admin', 'reviewer') %}
+      <a class="btn btn-primary btn-sm" href="{{ url_for('preventive_inspection_edit', inspection_id=entry.id) }}"><i class="bi bi-pencil"></i> ویرایش</a>
+      {% endif %}
+      <a class="btn btn-secondary btn-sm" href="{{ url_for('preventive_inspection_list') }}"><i class="bi bi-arrow-right"></i> بازگشت</a>
+    </div>
+  </div>
+  <div class="card-body">
+    <div class="row g-3 mb-4">
+      <div class="col-md-3"><strong>تاریخ:</strong><br>{{ entry.tarikh }}</div>
+      <div class="col-md-3"><strong>نوع بازدید:</strong><br>{{ entry.noe_bazdid }}</div>
+      <div class="col-md-3"><strong>کد دستگاه:</strong><br>{{ entry.kod_dastgah }}</div>
+      <div class="col-md-3"><strong>نام دستگاه:</strong><br>{{ entry.nam_dastgah }}</div>
+      <div class="col-md-3"><strong>وضعیت کلی:</strong><br>{{ entry.vaziat_kolli or '-' }}</div>
+      <div class="col-md-3"><strong>بازدید بعدی:</strong><br>{{ entry.tarikh_bazdid_badi or '-' }}</div>
+      <div class="col-md-3"><strong>بازدیدکننده:</strong><br>{{ entry.bazresh_konande or '-' }}</div>
+    </div>
+    <h6 class="mb-3">چک‌لیست بازدید</h6>
+    <div class="row g-2">
+      {% for key, label in checklist %}
+      <div class="col-md-6 col-lg-4">
+        <div class="border rounded p-2 {% if entry[key] %}bg-success-subtle{% else %}bg-light{% endif %}">
+          {% if entry[key] %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-dash-circle text-muted"></i>{% endif %}
+          {{ label }}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% if entry.tozihat %}
+    <div class="mt-4"><strong>توضیحات:</strong><div class="border rounded p-3 mt-1">{{ entry.tozihat }}</div></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

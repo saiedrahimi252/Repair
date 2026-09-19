@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}مواد و قطعات مصرفی{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-header">مواد و قطعات مصرفی</div>
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end mb-3">
+      <div class="col-md-3">
+        <label class="form-label">کد دستگاه</label>
+        <input type="text" name="device" class="form-control" value="{{ request.args.get('device','') }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">کد کالا</label>
+        <input type="text" name="goods" class="form-control" value="{{ request.args.get('goods','') }}">
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100">جستجو</button>
+      </div>
+      <div class="col-md-2">
+        <a class="btn btn-outline-success w-100" href="{{ url_for('consumables_export', **request.args) }}">خروجی اکسل</a>
+      </div>
+    </form>
+
+    <div class="table-responsive">
+      <table class="table table-striped table-bordered">
+        <thead><tr>
+          <th>ردیف</th><th>کد کالا</th><th>نام کالا</th><th>تعداد</th><th>واحد</th>
+          <th>شماره درخواست</th><th>کد دستگاه</th><th>تاریخ</th>
+        </tr></thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td>{{ r.id }}</td><td>{{ r.code }}</td><td>{{ r.name }}</td><td>{{ r.qty }}</td><td>{{ r.vahed }}</td>
+            <td>{{ r.request_number }}</td><td>{{ r.kod_dastgah }}</td><td>{{ r.tarikh }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="text-muted">رکوردی یافت نشد.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

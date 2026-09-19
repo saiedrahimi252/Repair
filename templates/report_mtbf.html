@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}MTBF / MTTR{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-header">محاسبه MTBF و MTTR</div>
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end mb-3">
+      <div class="col-md-3">
+        <label class="form-label">از تاریخ</label>
+        <input type="text" name="from" class="form-control jalali-date" value="{{ request.args.get('from','') }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">تا تاریخ</label>
+        <input type="text" name="to" class="form-control jalali-date" value="{{ request.args.get('to','') }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">زمان کل در دسترس بازه (ساعت)</label>
+        <input type="text" name="available" class="form-control" value="{{ request.args.get('available','') }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">مرتب‌سازی بر اساس</label>
+        <select name="sort_by" class="form-select">
+          <option value="mttr" {{ "selected" if sort_by == "mttr" }}>MTTR (بزرگ به کوچک)</option>
+          <option value="mtbf" {{ "selected" if sort_by == "mtbf" }}>MTBF (بزرگ به کوچک)</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100">محاسبه</button>
+      </div>
+      <div class="col-md-1">
+        <a class="btn btn-outline-success w-100" href="{{ url_for('report_mtbf_export', **request.args) }}">اکسل</a>
+      </div>
+    </form>
+    <p class="text-muted small">نکته: اگر «زمان کل در دسترس» خالی بماند، فقط MTTR و مجموع توقف محاسبه می‌شود. این محاسبه فقط شامل درخواست‌هایی است که نوع کار آن‌ها «تعمیرات اتفاقی» بوده (تعمیرات پیشگیرانه، اساسی و ... جزو خرابی محسوب نمی‌شوند).</p>
+
+    <div class="table-responsive">
+      <table class="table table-striped table-hover table-bordered">
+        <thead><tr>
+          <th>کد دستگاه</th><th>نام دستگاه</th><th>تعداد خرابی</th><th>تعداد خرابی تکراری</th><th>مجموع توقف (ساعت)</th>
+          <th{{ ' class="table-primary"'|safe if sort_by == "mttr" }}>MTTR</th>
+          <th{{ ' class="table-primary"'|safe if sort_by == "mtbf" }}>MTBF</th>
+          <th>هدف تعداد خرابی</th><th>هدف زمان توقف</th>
+        </tr></thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td>{{ r.cod }}</td><td>{{ r.name }}</td><td>{{ r.count_kharabi }}</td>
+            <td>{% if r.count_tekrary > 0 %}<span class="badge bg-warning text-dark">{{ r.count_tekrary }}</span>{% else %}0{% endif %}</td>
+            <td>{{ r.total_tavaghof }}</td>
+            <td{{ ' class="table-primary"'|safe if sort_by == "mttr" }}>{{ r.mttr }}</td>
+            <td{{ ' class="table-primary"'|safe if sort_by == "mtbf" }}>{{ r.mtbf }}</td>
+            <td>{{ r.hadaftedadkharabi }}</td><td>{{ r.hadafzamantavaghof }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="9" class="text-muted">دستگاهی ثبت نشده است.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

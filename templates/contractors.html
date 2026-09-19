@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}ثبت مجری جدید{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header">ثبت مجری جدید</div>
+      <div class="card-body">
+        <form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="mb-2">
+            <label class="form-label">کد مجری</label>
+            <input type="text" class="form-control" value="{{ next_cod }}" disabled>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required">نام و نام خانوادگی مجری</label>
+            <input type="text" name="name" class="form-control" required autofocus>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">تایید</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header">مجری‌های ثبت شده</div>
+      <div class="card-body table-responsive">
+        <table class="table table-striped table-bordered">
+          <thead><tr><th>کد</th><th>نام مجری</th></tr></thead>
+          <tbody>
+            {% for c in contractors %}
+            <tr><td>{{ c.cod }}</td><td>{{ c.name }}</td></tr>
+            {% else %}
+            <tr><td colspan="2" class="text-muted">هنوز مجری ثبت نشده است.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

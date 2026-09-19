@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}پیشنهاد زمان‌بندی بازدید{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-calendar2-week"></i> پیشنهاد زمان‌بندی بازدید پیشگیرانه/پیش‌بینانه</span>
+    <a href="{{ url_for('maintenance_recommendations_export') }}" class="btn btn-sm btn-outline-success"><i class="bi bi-file-earmark-excel"></i> خروجی اکسل</a>
+  </div>
+  <div class="card-body">
+    <div class="alert alert-light border small">
+      <strong>این جدول چطور کار می‌کند:</strong>
+      برای هر دستگاه، فاصله‌ی زمانی بین خرابی‌های قبلی آن حساب می‌شود.
+      بعد، از تاریخ آخرین بازدید پیشگیرانه (یا اگر بازدیدی ثبت نشده، از
+      تاریخ آخرین خرابی) به‌اندازه‌ی ۷۰٪ همان فاصله جلو می‌رویم تا
+      «تاریخ پیشنهادی بازدید بعدی» به دست بیاید. اگر دستگاهی کمتر از
+      دو خرابی ثبت‌شده داشته باشد، چون هنوز داده‌ی کافی نیست، دوره‌ی ۶ ماهه به‌عنوان مبنا در نظر گرفته می‌شود و به‌جای
+      محاسبه‌ی واقعی از یک بازه‌ی پیش‌فرض ۹۰ روزه استفاده و این موضوع
+      در ستون «مبنای محاسبه» مشخص می‌شود.
+    </div>
+    <p class="small">امروز: <strong>{{ today }}</strong></p>
+
+    <div class="table-responsive">
+      <table class="table table-striped table-hover table-bordered">
+        <thead><tr>
+          <th>کد دستگاه</th><th>نام دستگاه</th><th>تعداد خرابی</th>
+          <th>میانگین فاصله خرابی (روز)</th><th>مبنای محاسبه</th>
+          <th>مبنای شروع</th><th>تاریخ پیشنهادی بازدید بعدی</th>
+          <th>روز باقی‌مانده</th><th>وضعیت</th><th>عملیات</th>
+        </tr></thead>
+        <tbody>
+          {% for r in results %}
+          <tr class="
+            {%- if r.urgency == 'عقب‌افتاده' %} table-danger
+            {%- elif r.urgency == 'فوری (کمتر از دو هفته)' %} table-warning
+            {%- elif r.urgency == 'نزدیک (کمتر از یک ماه)' %} table-info
+            {%- endif %}">
+            <td>{{ r.cod }}</td><td>{{ r.name }}</td><td>{{ r.failure_count }}</td>
+            <td>{{ r.avg_interval_days if r.avg_interval_days is not none else '-' }}</td>
+            <td>{{ r.basis }}</td>
+            <td>{{ r.baseline_label }} ({{ r.baseline_date }})</td>
+            <td>{{ r.recommended_date or '-' }}</td>
+            <td>
+              {% if r.days_remaining is not none %}
+                {{ r.days_remaining }} روز
+              {% else %}-{% endif %}
+            </td>
+            <td>
+              {% if r.urgency == 'عقب‌افتاده' %}<span class="badge bg-danger">عقب‌افتاده</span>
+              {% elif r.urgency == 'فوری (کمتر از دو هفته)' %}<span class="badge bg-warning text-dark">فوری</span>
+              {% elif r.urgency == 'نزدیک (کمتر از یک ماه)' %}<span class="badge bg-info text-dark">نزدیک</span>
+              {% elif r.urgency == 'عادی' %}<span class="badge bg-success">عادی</span>
+              {% else %}<span class="badge bg-secondary">{{ r.urgency }}</span>{% endif %}
+            </td>
+            <td class="text-nowrap">
+              {% set visit_type = 'پیش‌بینانه' if r.cod.startswith('CNC') else 'پیشگیرانه' %}
+              {% set visitor = 'سعید رحیمی' if r.cod.startswith('CNC') else ('مجید بیاتی' if r.cod.startswith('FR') else 'حسین فصاحت') %}
+              <a class="btn btn-sm btn-primary" href="{{ url_for('preventive_inspection_new', cod=r.cod, name=r.name, type=visit_type, visitor=visitor) }}">
+                <i class="bi bi-clipboard-check"></i> ثبت بازدید
+              </a>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="10" class="text-muted">دستگاهی ثبت نشده است.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

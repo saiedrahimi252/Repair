@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}بازدید روزانه دستگاه{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header">ثبت بازدید روزانه (قبل از شروع به کار)</div>
+      <div class="card-body">
+        <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="row g-3 mb-3">
+            <div class="col-md-6 position-relative">
+              <label class="form-label required">کد دستگاه</label>
+              <input type="text" name="codedastgah" id="codedastgah" class="form-control" required autocomplete="off">
+              <div id="codedastgah_suggestions" class="list-group position-absolute w-100" style="z-index:1000; display:none;"></div>
+            </div>
+            <div class="col-md-6 position-relative">
+              <label class="form-label required">نام دستگاه</label>
+              <input type="text" name="namdastgah" id="namdastgah" class="form-control" required autocomplete="off">
+              <div id="namdastgah_suggestions" class="list-group position-absolute w-100" style="z-index:1000; display:none;"></div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label required">تاریخ بازدید</label>
+              <input type="text" name="tarikh" class="form-control jalali-date" required value="{{ today }}">
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">نام بازدیدکننده</label>
+              {% if current_user.role == 'admin' %}
+              <input type="text" name="bazresh_konande" class="form-control">
+              {% else %}
+              <input type="text" class="form-control" value="{{ current_user.full_name or current_user.username }}" readonly>
+              <input type="hidden" name="bazresh_konande" value="{{ current_user.full_name or current_user.username }}">
+              <div class="form-text">این فیلد بر اساس نام کاربری شما پر می‌شود.</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <label class="form-label">موارد قابل بررسی قبل از شروع به کار</label>
+          <table class="table table-bordered">
+            <tbody>
+              {% for key, label in checklist %}
+              <tr>
+                <td class="w-75">{{ label }}</td>
+                <td class="text-center">
+                  <div class="form-check form-switch d-flex justify-content-center">
+                    <input class="form-check-input" type="checkbox" name="chk_{{ key }}" id="chk_{{ key }}" style="transform: scale(1.4);">
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <p class="text-muted small">هر مورد را در صورت بررسی و تایید بودن، تیک بزنید. مواردی که تیک نخورند به‌عنوان «نیاز به بررسی» در لیست بازدیدها مشخص می‌شوند.</p>
+
+          <div class="mb-3">
+            <label class="form-label">توضیحات / مشکلات مشاهده شده</label>
+            <textarea name="tozihat" class="form-control" rows="3"></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100">ثبت بازدید روزانه</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+attachDeviceAutocomplete('codedastgah', 'namdastgah');
+</script>
+{% endblock %}

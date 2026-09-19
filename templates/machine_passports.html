@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}شناسنامه ماشین‌آلات{% endblock %}
+{% block content %}
+<style>
+.passport-wrap{overflow:auto;max-height:70vh}.passport-table{white-space:nowrap;font-size:12px}.passport-table{min-width:1100px}.passport-table td,.passport-table th{vertical-align:middle}.passport-table tbody tr.active{background:#eef7ff}.passport-form .form-control{font-size:13px}.passport-form textarea{min-height:70px}.small-muted{font-size:12px;color:#777}
+</style>
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div><h3 class="mb-1">شناسنامه و مشخصات فنی ماشین‌آلات</h3><div class="small-muted">فرم FM107 از فایل مرجع وارد شده و بعد از ورود اولیه، اطلاعات داخل خود برنامه نگهداری می‌شود.</div></div>
+  <a class="btn btn-outline-success" href="{{ url_for('machine_passports_export') }}"><i class="bi bi-file-earmark-excel"></i> خروجی Excel فرم</a>
+</div>
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card passport-form">
+      <div class="card-header">ثبت / ویرایش شناسنامه</div>
+      <div class="card-body">
+        {% if edit %}
+        <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="device_cod" value="{{ edit.device_cod }}">
+          <div class="alert alert-light border py-2"><b>کد دستگاه:</b> {{ edit.device_cod }}<br><span class="small-muted">کد فرم مرجع: {{ edit.source_cod or '-' }}</span></div>
+          {% set fields=[
+          ('device_name','نام دستگاه'),('manufacturer_country','کشور سازنده'),('manufacturer_company','شرکت سازنده'),('useful_life','عمر مفید'),('manufacture_date','تاریخ ساخت'),('serial_number','سریال دستگاه'),('commissioning_date','تاریخ راه‌اندازی'),('purchase_condition','وضعیت هنگام خرید'),('technical_info','کاتالوگ و اطلاعات فنی'),('energy_consumption','انرژی مصرفی'),('other_energy','سایر'),('cooling_system','سیستم خنک‌کننده'),('dimensions_length','طول (cm)'),('dimensions_width','عرض (cm)'),('dimensions_height','ارتفاع (cm)'),('accessories','تجهیزات جانبی'),('operation_description','شرح عملیات'),('notes','توضیحات')]
+          %}
+          {% for f,label in fields %}
+          <div class="mb-2"><label class="form-label">{{ label }}</label>{% if f in ['technical_info','accessories','operation_description','notes'] %}<textarea class="form-control" name="{{ f }}">{{ edit[f] or '' }}</textarea>{% else %}<input class="form-control" name="{{ f }}" value="{{ edit[f] or '' }}">{% endif %}</div>
+          {% endfor %}
+          <hr><h6>محصولات مورد استفاده</h6>
+          {% for ph in product_headers %}
+          <div class="mb-2"><label class="form-label">{{ ph }}</label>
+            {% if ph == 'توضیحات' %}<textarea class="form-control" name="product__{{ ph }}">{{ usage.get(ph,'') }}</textarea>
+            {% else %}<select class="form-select" name="product__{{ ph }}"><option value="">-</option><option value="l" {% if usage.get(ph)=='l' %}selected{% endif %}>✓</option></select>{% endif %}
+          </div>
+          {% endfor %}
+          <button class="btn btn-primary w-100"><i class="bi bi-save"></i> ذخیره</button>
+        </form>
+        {% else %}<div class="text-muted">دستگاهی برای نمایش وجود ندارد.</div>{% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-8">
+    <div class="card"><div class="card-header">لیست ماشین‌آلات</div><div class="card-body passport-wrap">
+      <table class="table table-sm table-bordered passport-table">
+        <thead><tr>
+          <th>ردیف</th><th>کد برنامه</th><th>نام دستگاه</th><th>کد فرم مرجع</th>
+          <th>کشور سازنده</th><th>شرکت سازنده</th><th>عمر مفید</th><th>تاریخ ساخت</th><th>سریال</th>
+          <th>تاریخ راه‌اندازی</th><th>وضعیت هنگام خرید</th><th>کاتالوگ و اطلاعات فنی</th>
+          <th>انرژی برق</th><th>انرژی سایر</th><th>سیستم خنک‌کننده</th>
+          <th>طول (cm)</th><th>عرض (cm)</th><th>ارتفاع (cm)</th>
+          <th>تجهیزات جانبی</th><th>شرح عملیات</th><th>توضیحات</th><th>ویرایش</th>
+        </tr></thead>
+        <tbody>{% for r in rows %}<tr class="{% if edit and edit.device_cod==r.device_cod %}active{% endif %}">
+          <td>{{ loop.index }}</td><td>{{ r.device_cod }}</td><td>{{ r.device_name }}</td><td>{{ r.source_cod }}</td>
+          <td>{{ r.manufacturer_country }}</td><td>{{ r.manufacturer_company }}</td><td>{{ r.useful_life }}</td><td>{{ r.manufacture_date }}</td><td>{{ r.serial_number }}</td>
+          <td>{{ r.commissioning_date }}</td><td>{{ r.purchase_condition }}</td><td>{{ r.technical_info }}</td>
+          <td>{{ r.energy_consumption }}</td><td>{{ r.other_energy }}</td><td>{{ r.cooling_system }}</td>
+          <td>{{ r.dimensions_length }}</td><td>{{ r.dimensions_width }}</td><td>{{ r.dimensions_height }}</td>
+          <td>{{ r.accessories }}</td><td>{{ r.operation_description }}</td><td>{{ r.notes }}</td>
+          <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('machine_passports', edit=r.device_cod) }}">ویرایش</a></td>
+        </tr>{% endfor %}</tbody>
+      </table>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

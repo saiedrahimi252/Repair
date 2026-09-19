@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}ثبت درخواست خرابی{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between">
+        <span>ثبت درخواست خرابی / تعمیر</span>
+        <span class="text-muted">شماره درخواست: {{ next_id }}</span>
+      </div>
+      <div class="card-body">
+        <form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label required">تاریخ درخواست</label>
+              {% if current_user.role == 'admin' %}
+              <input type="text" name="tarikhdarkhast" class="form-control jalali-date" required value="{{ today }}">
+              {% else %}
+              <input type="text" class="form-control" value="{{ today }}" readonly>
+              <input type="hidden" name="tarikhdarkhast" value="{{ today }}">
+              {% endif %}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label required">ساعت درخواست</label>
+              {% if current_user.role == 'admin' %}
+              <input type="text" name="timedarkhast" class="form-control" required value="{{ now }}">
+              {% else %}
+              <input type="text" class="form-control" value="{{ now }}" readonly>
+              <input type="hidden" name="timedarkhast" value="{{ now }}">
+              {% endif %}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">نام درخواست کننده</label>
+              {% if current_user.role == 'admin' %}
+              <input type="text" name="darkhastkonande" class="form-control">
+              {% else %}
+              <input type="text" class="form-control" value="{{ current_user.full_name or current_user.username }}" readonly>
+              <input type="hidden" name="darkhastkonande" value="{{ current_user.full_name or current_user.username }}">
+              <div class="form-text">این فیلد بر اساس نام کاربری شما پر می‌شود.</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-6 position-relative">
+              <label class="form-label required">کد دستگاه</label>
+              <input type="text" name="codedastgah" id="codedastgah" class="form-control" required autocomplete="off">
+              <div id="codedastgah_suggestions" class="list-group position-absolute w-100" style="z-index:1000; display:none;"></div>
+            </div>
+            <div class="col-md-6 position-relative">
+              <label class="form-label required">نام دستگاه</label>
+              <input type="text" name="namdastgah" id="namdastgah" class="form-control" required autocomplete="off">
+              <div id="namdastgah_suggestions" class="list-group position-absolute w-100" style="z-index:1000; display:none;"></div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label required">نوع کار درخواستی</label><br>
+              {% for key, label in work_types %}
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="wt_{{ key }}" id="wt_{{ key }}">
+                <label class="form-check-label" for="wt_{{ key }}">{{ label }}</label>
+              </div>
+              {% endfor %}
+            </div>
+
+            <div class="col-12">
+              <label class="form-label required">شرح خرابی / نقص</label>
+              <textarea name="sharhenaghs" class="form-control" rows="3" required></textarea>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary mt-4 w-100">ثبت درخواست</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mt-3" id="deviceHistoryCard" style="display: none;">
+      <div class="card-header">تعمیرات قبلی این دستگاه</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-striped table-bordered mb-0">
+            <thead><tr>
+              <th>کد دستگاه</th><th>نام دستگاه</th><th>تاریخ تعمیر</th><th>شرح خرابی</th><th>کار انجام شده</th>
+            </tr></thead>
+            <tbody id="deviceHistoryBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div id="deviceHistoryEmpty" class="text-muted mt-3" style="display: none;">
+      تعمیر قبلی‌ای برای این دستگاه ثبت نشده است.
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+attachDeviceAutocomplete('codedastgah', 'namdastgah', function (cod) {
+  loadDeviceHistory(cod);
+});
+
+var deviceHistoryTimer = null;
+document.getElementById('codedastgah').addEventListener('input', function () {
+  var value = this.value;
+  clearTimeout(deviceHistoryTimer);
+  deviceHistoryTimer = setTimeout(function () { loadDeviceHistory(value); }, 400);
+});
+
+function loadDeviceHistory(cod) {
+  var card = document.getElementById('deviceHistoryCard');
+  var empty = document.getElementById('deviceHistoryEmpty');
+  var body = document.getElementById('deviceHistoryBody');
+  cod = (cod || '').trim();
+  if (!cod) {
+    card.style.display = 'none';
+    empty.style.display = 'none';
+    return;
+  }
+  fetch('{{ url_for("api_device_history") }}?cod=' + encodeURIComponent(cod))
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var rows = data.rows || [];
+      body.innerHTML = '';
+      if (rows.length === 0) {
+        card.style.display = 'none';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      card.style.display = 'block';
+      rows.forEach(function (r) {
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + (r.codedastgah || '') + '</td>' +
+          '<td>' + (r.namdastgah || '') + '</td>' +
+          '<td>' + (r.tarikhdarkhast || '') + '</td>' +
+          '<td>' + (r.sharhenaghs || '') + '</td>' +
+          '<td>' + (r.sharhekareanjamshode || '') + '</td>';
+        body.appendChild(tr);
+      });
+    })
+    .catch(function () { card.style.display = 'none'; empty.style.display = 'none'; });
+}
+</script>
+{% endblock %}

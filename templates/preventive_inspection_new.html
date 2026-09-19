@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}بازدید پیشگیرانه و پیش‌بینانه{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-9">
+    <div class="card">
+      <div class="card-header">ثبت بازدید پیشگیرانه / پیش‌بینانه</div>
+      <div class="card-body">
+        <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="row g-3 mb-3">
+            <div class="col-md-4 position-relative">
+              <label class="form-label required">کد دستگاه</label>
+              <input type="text" name="codedastgah" id="codedastgah" class="form-control" required autocomplete="off" value="{{ prefill_cod|default('') }}">
+              <div id="codedastgah_suggestions" class="list-group position-absolute w-100" style="z-index:1000; display:none;"></div>
+            </div>
+            <div class="col-md-4 position-relative">
+              <label class="form-label required">نام دستگاه</label>
+              <input type="text" name="namdastgah" id="namdastgah" class="form-control" required autocomplete="off" value="{{ prefill_name|default('') }}">
+              <div id="namdastgah_suggestions" class="list-group position-absolute w-100" style="z-index:1000; display:none;"></div>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label required">نوع بازدید</label>
+              <select name="noe_bazdid" class="form-select" required>
+                <option value="پیشگیرانه" {% if prefill_type|default('پیشگیرانه') == 'پیشگیرانه' %}selected{% endif %}>پیشگیرانه (Preventive)</option>
+                <option value="پیش‌بینانه" {% if prefill_type|default('پیشگیرانه') == 'پیش‌بینانه' %}selected{% endif %}>پیش‌بینانه (Predictive)</option>
+              </select>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label required">تاریخ بازدید</label>
+              <input type="text" name="tarikh" class="form-control jalali-date" required value="{{ today }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">تاریخ بازدید بعدی (پیشنهادی)</label>
+              <input type="text" name="tarikh_bazdid_badi" class="form-control jalali-date">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">نام بازدیدکننده</label>
+              {% if current_user.role == 'admin' %}
+              <input type="text" name="bazresh_konande" class="form-control" value="{{ prefill_visitor|default('') }}">
+              {% else %}
+              <input type="text" class="form-control" value="{{ current_user.full_name or current_user.username }}" readonly>
+              <input type="hidden" name="bazresh_konande" value="{{ current_user.full_name or current_user.username }}">
+              <div class="form-text">این فیلد بر اساس نام کاربری شما پر می‌شود.</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <label class="form-label">موارد بازدید پیشگیرانه / پیش‌بینانه</label>
+          <table class="table table-bordered">
+            <tbody>
+              {% for key, label in checklist %}
+              <tr>
+                <td class="w-75">{{ label }}</td>
+                <td class="text-center">
+                  <div class="form-check form-switch d-flex justify-content-center">
+                    <input class="form-check-input" type="checkbox" name="chk_{{ key }}" id="chk_{{ key }}" style="transform: scale(1.4);">
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <p class="text-muted small">هر مورد را در صورت بررسی و سالم بودن، تیک بزنید. مواردی که تیک نخورند به‌عنوان «نیاز به بررسی/تعمیر» در لیست بازدیدها مشخص می‌شوند.</p>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">وضعیت کلی دستگاه پس از بازدید</label>
+              <select name="vaziat_kolli" class="form-select">
+                {% for s in status_options %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">توضیحات</label>
+              <textarea name="tozihat" class="form-control" rows="2"></textarea>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 mt-3">ثبت بازدید</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+attachDeviceAutocomplete('codedastgah', 'namdastgah');
+</script>
+{% endblock %}

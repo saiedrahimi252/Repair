@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}معیار کلیدی تجهیزات{% endblock %}
+{% block content %}
+<style>
+.key-excel-wrap{border:1px solid #b7b7b7;background:#fff;overflow:auto;max-height:78vh;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.key-excel{border-collapse:separate;border-spacing:0;min-width:3300px;font-size:13px}
+.key-excel th,.key-excel td{border-left:1px solid #d0d0d0;border-bottom:1px solid #d0d0d0;padding:4px;background:#fff;vertical-align:middle}
+.key-excel th{background:#e2f0d9;color:#111;font-weight:700;text-align:center;position:sticky;top:0;z-index:3;white-space:normal;min-width:100px}
+.key-excel th:first-child,.key-excel td:first-child{position:sticky;right:0;z-index:4;background:#f2f2f2;width:45px;min-width:45px}
+.key-excel th:nth-child(2),.key-excel td:nth-child(2){position:sticky;right:45px;z-index:4;background:#fff;min-width:220px}
+.key-excel th:nth-child(3),.key-excel td:nth-child(3){position:sticky;right:265px;z-index:4;background:#fff;min-width:90px}
+.key-select{width:100%;min-width:125px;height:32px;border:1px solid #cfcfcf;border-radius:2px;background:#fff;font-size:12px;padding:2px 5px}
+.key-select:focus,.key-input:focus,.key-textarea:focus{background:#fffde6;border:1px solid #70ad47;box-shadow:none;outline:none}
+.key-input,.key-textarea{border:1px solid #d7d7d7;border-radius:2px;background:#fff;font-size:12px;width:100%;min-width:110px}
+.key-input{height:32px;padding:3px 6px}.key-textarea{padding:4px;resize:vertical}
+.key-excel tr:hover td{background:#f7fbf4}.key-excel tr:hover td:first-child,.key-excel tr:hover td:nth-child(2),.key-excel tr:hover td:nth-child(3){background:#f0f7ea}
+.key-actions{display:flex;gap:8px;flex-wrap:wrap}.key-note{font-size:13px}
+.option-note{display:block;color:#777;font-size:10px;margin-top:2px;white-space:nowrap}
+</style>
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div><h3 class="mb-1">چک‌لیست تجهیزات کلیدی، نیمه‌کلیدی و عادی</h3><div class="text-muted key-note">ساختار گزینه‌ها مطابق فایل Excel مرجع است. برای هر معیار یکی از گزینه‌های همان ستون را انتخاب کن.</div></div>
+  <div class="key-actions">
+    <button class="btn btn-primary" type="button" onclick="saveAll()"><i class="bi bi-save"></i> ذخیره تغییرات</button>
+    <a class="btn btn-outline-success" href="{{ url_for('key_equipment_export') }}"><i class="bi bi-file-earmark-excel"></i> خروجی Excel مطابق فایل اصلی</a>
+  </div>
+</div>
+<div class="alert alert-info key-note mb-2">تغییرات فقط با زدن دکمه «ذخیره تغییرات» ثبت می‌شوند. باز کردن صفحه یا گرفتن خروجی Excel هیچ مقداری را تغییر نمی‌دهد.</div>
+<div class="key-excel-wrap">
+<form method="post" id="keyForm"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="cod" id="saveCod">
+<table class="key-excel">
+<thead><tr><th>#</th><th>نام دستگاه</th><th>کد دستگاه</th>
+{% for k,label in key_fields %}<th>{{label}}<span class="option-note">گزینه‌ها: {{ key_options[k]|join(' | ') }}</span></th>{% endfor %}
+<th>امتیاز</th><th>نوع دستگاه</th><th style="min-width:380px">تجهیزات جایگزین</th><th style="min-width:280px">کد جایگزین</th><th style="min-width:280px">عملیات پیمانی و تامین‌کننده جایگزین</th><th>ذخیره</th></tr></thead>
+<tbody>
+{% for r in rows %}
+<tr>
+<td>{{loop.index}}</td><td>{{r.name}}</td><td>{{r.cod}}</td>
+{% for k,label in key_fields %}
+<td>
+<select class="key-select" name="{{k}}__{{r.cod}}">
+<option value="">انتخاب نشده</option>
+{% for opt in key_options[k] %}<option value="{{opt}}" {% if (r[k] or '')|string == opt|string %}selected{% endif %}>{{opt}}</option>{% endfor %}
+</select>
+</td>
+{% endfor %}
+<td><input class="key-input key-score" name="score__{{r.cod}}" value="{{r.score or ''}}" readonly title="امتیاز به صورت خودکار از معیارها محاسبه می‌شود"></td>
+<td><input class="key-input key-classification" name="classification__{{r.cod}}" value="{{r.classification or ''}}" readonly title="نوع دستگاه به صورت خودکار از امتیاز محاسبه می‌شود"></td>
+<td><textarea class="key-textarea" name="substitute_names__{{r.cod}}" rows="2">{{r.substitute_names or ''}}</textarea></td>
+<td><textarea class="key-textarea" name="substitute_codes__{{r.cod}}" rows="2">{{r.substitute_codes or ''}}</textarea></td>
+<td><textarea class="key-textarea" name="contractor_alternative__{{r.cod}}" rows="2">{{r.contractor_alternative or ''}}</textarea></td>
+<td><button class="btn btn-sm btn-success" type="button" onclick="saveRow('{{r.cod}}')"><i class="bi bi-check2"></i></button></td>
+</tr>
+{% endfor %}
+</tbody></table></form></div>
+<script>
+const KEY_WEIGHTS = {
+  machine_count:{"1":30,"2":9,">2":0},
+  bottleneck:{"بله":10,"خیر":0},
+  product_count:{"بله":30,"خیر":0},
+  mtbf:{"<430":5,">=430":3},
+  external_parts:{"خیر":20,"0.5":6,"1":0},
+  downtime_hours:{">100":30,"50-100":15,"<50":0},
+  machine_age:{">10سال":0,"<=10سال":5},
+  spare_parts:{"بله":0,"خیر":5},
+  repeated_stops:{">3":30,"2-3":15,"<2":0},
+  customer_impact:{"زیاد":30,"متوسط":15,"کم":0},
+  quality_impact:{"زیاد":5,"متوسط":3,"کم":0}
+};
+function keyScore(row){
+  let score=0;
+  for(const field in KEY_WEIGHTS){
+    const el=row.querySelector('[name="'+field+'__'+CSS.escape(row.dataset.cod)+'"]');
+    if(el) score += KEY_WEIGHTS[field][el.value] || 0;
+  }
+  return score;
+}
+function updateKeyRow(row){
+  const score=keyScore(row);
+  const cls=score>100 ? 'کلیدی' : (score<80 ? 'عادی' : 'نیمه کلیدی');
+  const scoreEl=row.querySelector('.key-score');
+  const clsEl=row.querySelector('.key-classification');
+  if(scoreEl) scoreEl.value=score;
+  if(clsEl) clsEl.value=cls;
+}
+document.querySelectorAll('.key-excel tbody tr').forEach(row=>{
+  const codeCell=row.children[2];
+  if(!codeCell) return;
+  row.dataset.cod=codeCell.textContent.trim();
+  row.querySelectorAll('.key-select').forEach(el=>el.addEventListener('change',()=>updateKeyRow(row)));
+  updateKeyRow(row);
+});
+function saveRow(c){document.getElementById('saveCod').value=c;document.getElementById('keyForm').submit();}
+function saveAll(){document.getElementById('saveCod').value='';document.getElementById('keyForm').submit();}
+</script>
+{% endblock %}
