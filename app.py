@@ -1327,8 +1327,17 @@ def devices():
             ),
         )
 
-        products = ["پراید", "پژو", "XUM", "TU3", "نیسان", "پیکان", "OHVG", "TU5", "توضیحات"]
-        flags = {p: request.form.get("product__" + p, "").strip() for p in products}
+        # محصولات مورد استفاده کاملاً قابل تنظیم هستند؛ هر شرکت/کاربر می‌تواند
+        # هر تعداد محصول با هر نامی که لازم دارد اضافه کند.
+        product_names = request.form.getlist("product_name[]")
+        product_used = request.form.getlist("product_used[]")
+        flags = {}
+        for idx, product_name in enumerate(product_names):
+            product_name = (product_name or "").strip()
+            if not product_name:
+                continue
+            used = "1" if idx < len(product_used) and str(product_used[idx]) == str(idx) else "0"
+            flags[product_name] = used
         db.execute(
             """INSERT INTO machine_product_usage(device_cod,product_flags,updated_at)
                VALUES(?,?,?)
@@ -1367,7 +1376,7 @@ def devices():
         edit=edit,
         passport=passport,
         usage=usage,
-        product_headers=["پراید","پژو","XUM","TU3","نیسان","پیکان","OHVG","TU5","توضیحات"],
+        product_items=list(usage.items()) if isinstance(usage, dict) else [],
     )
 
 
