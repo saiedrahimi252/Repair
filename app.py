@@ -1404,7 +1404,7 @@ def _work_type_label(row):
 @login_required
 @roles_required(*ADMIN_ONLY)
 def request_edit(request_id):
-    """ویرایش کامل درخواست از مسیر جستجو؛ فقط مدیر سیستم مجاز است."""
+    """ویرایش اطلاعات اولیه‌ی درخواست؛ مشابه فرم ثبت درخواست."""
     db = get_db()
     row = db.execute("SELECT * FROM data WHERE id = ?", (request_id,)).fetchone()
     if not row:
@@ -1423,82 +1423,49 @@ def request_edit(request_id):
             flash("شرح خرابی را وارد کنید.", "error")
             return redirect(url_for("request_edit", request_id=request_id))
 
-        status = "completed" if form.get("status") == "completed" else "pending"
-        device_code = form.get("codedastgah", "").strip()
+        device_operational_status = form.get("device_operational_status", "").strip()
+        if device_operational_status not in DEVICE_OPERATIONAL_STATUS_VALUES:
+            flash("وضعیت فعلی دستگاه را انتخاب کنید.", "error")
+            return redirect(url_for("request_edit", request_id=request_id))
+
         with db:
             db.execute(
                 """UPDATE data SET
                     etefaghi=?, pishgirane=?, asasy=?, tekrary=?, sayer=?,
                     namdastgah=?, codedastgah=?, sharhenaghs=?,
-                    barghi=?, mekanik=?, abzarsazi=?, taminghate=?, kontrol=?, tasisat=?, tolid=?, sayertakhir=?,
-                    darkhastkonande=?, tarikhdarkhast=?, timedarkhast=?,
-                    sharhekareanjamshode=?, tarikhstart=?, timestart=?, tarikhend=?, timeEnd=?,
-                    timetavaghofdastgah=?, tozihat=?, status=?
+                    device_operational_status=?,
+                    darkhastkonande=?, tarikhdarkhast=?, timedarkhast=?
                    WHERE id=?""",
                 (
                     *(1 if form.get(f"wt_{k}") else 0 for k, _ in WORK_TYPES),
-                    form.get("namdastgah", "").strip(), device_code, form.get("sharhenaghs", "").strip(),
-                    *(1 if form.get(f"dep_{k}") else 0 for k, _ in DEPARTMENTS),
-                    form.get("darkhastkonande", "").strip(), form.get("tarikhdarkhast", "").strip(), form.get("timedarkhast", "").strip(),
-                    form.get("sharhekareanjamshode", "").strip(), form.get("tarikhstart", "").strip(), form.get("timestart", "").strip(),
-                    form.get("tarikhend", "").strip(), form.get("timeEnd", "").strip(),
-                    form.get("timetavaghofdastgah", "").strip(), form.get("tozihat", "").strip(), status, request_id,
+                    form.get("namdastgah", "").strip(),
+                    form.get("codedastgah", "").strip(),
+                    form.get("sharhenaghs", "").strip(),
+                    device_operational_status,
+                    form.get("darkhastkonande", "").strip(),
+                    form.get("tarikhdarkhast", "").strip(),
+                    form.get("timedarkhast", "").strip(),
+                    request_id,
                 ),
             )
-
-            db.execute("DELETE FROM mojry WHERE shomare_darkhast = ?", (request_id,))
-            db.execute("DELETE FROM mvademasrafi WHERE shomare_darkhast = ?", (request_id,))
-
-            cods = form.getlist("contractor_cod[]")
-            names = form.getlist("contractor_name[]")
-            dates = form.getlist("contractor_date[]")
-            hours = form.getlist("contractor_hours[]")
-
-            # بستن درخواست فقط وقتی مجاز است که حداقل یک مجری برای آن ثبت شده باشد.
-            # این کنترل سمت سرور است تا حتی با دستکاری فرم هم امکان بستن بدون مجری نباشد.
-            valid_contractors = [c.strip() for c in cods if c and c.strip()]
-            if not valid_contractors:
-                flash("قبل از تکمیل و بستن درخواست، حداقل یک مجری ثبت کنید.", "error")
-                return redirect(url_for("request_complete", request_id=request_id, next=safe_next_url(request.form.get("next")) or url_for("requests_pending")))
-
-            for cod, name, date, hrs in zip(cods, names, dates, hours):
-                db.execute(
-                    """INSERT INTO mojry (kod_mojri, nam_mojri, shomare_darkhast, tarikh, saat, kod_dastgah)
-                       VALUES (?,?,?,?,?,?)""",
-                    (cod, name, request_id, date, hrs, device_code),
-                )
-
-            m_cods = form.getlist("material_cod[]")
-            m_names = form.getlist("material_name[]")
-            m_qtys = form.getlist("material_qty[]")
-            m_vaheds = form.getlist("material_vahed[]")
-            today = today_jalali_str()
-            for cod, name, qty, vahed in zip(m_cods, m_names, m_qtys, m_vaheds):
-                db.execute(
-                    """INSERT INTO mvademasrafi (code, name, qty, vahed, shomare_darkhast, kod_dastgah, tarikh)
-                       VALUES (?,?,?,?,?,?,?)""",
-                    (cod, name, qty, vahed, request_id, device_code, today),
-                )
-
             db.execute(
                 "INSERT INTO audit_log (user_id, username, action, event_time, ip_address, user_agent) VALUES (?,?,?,?,?,?)",
-                (current_user()["id"], current_user()["username"], f"ویرایش کامل درخواست شماره {row['shomare_darkhast']}",
+                (current_user()["id"], current_user()["username"], f"ویرایش اطلاعات اولیه درخواست شماره {row['shomare_darkhast']}",
                  datetime.datetime.now().isoformat(timespec="seconds"), request.remote_addr, request.headers.get("User-Agent", "")),
             )
 
-        flash(f"تمام اطلاعات درخواست شماره {row['shomare_darkhast']} با موفقیت اصلاح شد.", "success")
-        return redirect(url_for("request_detail", request_id=request_id))
+        flash(f"اطلاعات اولیه درخواست شماره {row['shomare_darkhast']} با موفقیت اصلاح شد.", "success")
+        if row["status"] == "completed":
+            return redirect(url_for("request_detail", request_id=request_id))
+        return redirect(url_for("requests_pending"))
 
-    device_list = db.execute("SELECT cod, name FROM dastgahjadid ORDER BY name").fetchall()
-    contractor_list = db.execute("SELECT cod, name FROM mojryjadid ORDER BY name").fetchall()
-    goods_list = db.execute("SELECT cod, name, vahed FROM kalajadid ORDER BY name").fetchall()
-    existing_mojry = db.execute("SELECT * FROM mojry WHERE shomare_darkhast = ?", (request_id,)).fetchall()
-    existing_materials = db.execute("SELECT * FROM mvademasrafi WHERE shomare_darkhast = ?", (request_id,)).fetchall()
     return render_template(
-        "request_edit.html", row=row, work_types=WORK_TYPES, work_units=WORK_UNITS,
-        delay_causes=DELAY_CAUSES, devices=device_list, contractors=contractor_list,
-        goods_list=goods_list, existing_mojry=existing_mojry, existing_materials=existing_materials,
-        today=today_jalali_str(), now=now_time_str(),
+        "request_edit.html",
+        row=row,
+        work_types=WORK_TYPES,
+        device_operational_status_options=DEVICE_OPERATIONAL_STATUS_OPTIONS,
+        today=today_jalali_str(),
+        now=now_time_str(),
     )
 
 
