@@ -1223,48 +1223,152 @@ def index():
 @roles_required(*ADMIN_ONLY)
 def devices():
     db = get_db()
+    _ensure_machine_passport(db)
+
+    passport_fields = [
+        "manufacturer_country","manufacturer_company","useful_life","manufacture_date",
+        "serial_number","commissioning_date","purchase_condition","technical_info",
+        "energy_consumption","other_energy","cooling_system","dimensions_length",
+        "dimensions_width","dimensions_height","accessories","operation_description","notes"
+    ]
+
     if request.method == "POST":
         cod = request.form.get("cod", "").strip()
         name = request.form.get("name", "").strip()
+        original_cod = request.form.get("original_cod", "").strip()
+
         if not cod or not name:
             flash("کد و نام دستگاه الزامی است.", "error")
-        else:
-            existing_device = db.execute("SELECT 1 FROM dastgahjadid WHERE cod = ?", (cod,)).fetchone()
-            if not existing_device:
-                company, used, maximum = company_limit(session["company_id"], "devices")
-                if maximum is not None and used >= maximum:
-                    flash(f"سقف دستگاه‌های پلن «{PLANS[company['plan_code']]['name']}» پر شده است ({maximum} دستگاه).", "error")
-                    return redirect(url_for("devices"))
-            def num(field):
-                val = request.form.get(field, "").strip()
-                try:
-                    return float(val) if val else 0
-                except ValueError:
-                    return 0
-
-            db.execute(
-                """INSERT INTO dastgahjadid
-                   (cod, name, hadaftedadkharabi, pazireshtedadkharabi, hadafzamantavaghof, pazireshzamantavaghof)
-                   VALUES (?,?,?,?,?,?)
-                   ON CONFLICT(cod) DO UPDATE SET
-                     name=excluded.name, hadaftedadkharabi=excluded.hadaftedadkharabi,
-                     pazireshtedadkharabi=excluded.pazireshtedadkharabi,
-                     hadafzamantavaghof=excluded.hadafzamantavaghof,
-                     pazireshzamantavaghof=excluded.pazireshzamantavaghof""",
-                (cod, name, num("hadaftedadkharabi"), num("pazireshtedadkharabi"),
-                 num("hadafzamantavaghof"), num("pazireshzamantavaghof")),
-            )
-            db.commit()
-            flash("اطلاعات دستگاه ذخیره شد.", "success")
             return redirect(url_for("devices"))
+        if original_cod and original_cod != cod:
+            flash("کد دستگاه در ویرایش قابل تغییر نیست.", "error")
+            return redirect(url_for("devices", edit=original_cod))
+
+        existing_device = db.execute(
+            "SELECT 1 FROM dastgahjadid WHERE cod = ?", (cod,)
+        ).fetchone()
+        if not existing_device:
+            company, used, maximum = company_limit(session["company_id"], "devices")
+            if maximum is not None and used >= maximum:
+                flash(
+                    f"سقف دستگاه‌های پلن «{PLANS[company['plan_code']]['name']}» پر شده است ({maximum} دستگاه).",
+                    "error",
+                )
+                return redirect(url_for("devices"))
+
+        def num(field):
+            val = request.form.get(field, "").strip()
+            try:
+                return float(val) if val else 0
+            except ValueError:
+                return 0
+
+        db.execute(
+            """INSERT INTO dastgahjadid
+               (cod, name, hadaftedadkharabi, pazireshtedadkharabi,
+                hadafzamantavaghof, pazireshzamantavaghof)
+               VALUES (?,?,?,?,?,?)
+               ON CONFLICT(cod) DO UPDATE SET
+                 name=excluded.name,
+                 hadaftedadkharabi=excluded.hadaftedadkharabi,
+                 pazireshtedadkharabi=excluded.pazireshtedadkharabi,
+                 hadafzamantavaghof=excluded.hadafzamantavaghof,
+                 pazireshzamantavaghof=excluded.pazireshzamantavaghof""",
+            (
+                cod, name, num("hadaftedadkharabi"), num("pazireshtedadkharabi"),
+                num("hadafzamantavaghof"), num("pazireshzamantavaghof"),
+            ),
+        )
+
+        # ثبت دستگاه و شناسنامه در همان فرم و با یک کد مشترک
+        passport_vals = {f: request.form.get(f, "").strip() for f in passport_fields}
+        now = datetime.datetime.now().isoformat(timespec="seconds")
+        db.execute(
+            """INSERT INTO machine_passport
+               (device_cod,device_name,source_name,source_cod,manufacturer_country,
+                manufacturer_company,useful_life,manufacture_date,serial_number,
+                commissioning_date,purchase_condition,technical_info,energy_consumption,
+                other_energy,cooling_system,dimensions_length,dimensions_width,
+                dimensions_height,accessories,operation_description,notes,updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(device_cod) DO UPDATE SET
+                 device_name=excluded.device_name,
+                 source_name=excluded.source_name,
+                 source_cod=excluded.source_cod,
+                 manufacturer_country=excluded.manufacturer_country,
+                 manufacturer_company=excluded.manufacturer_company,
+                 useful_life=excluded.useful_life,
+                 manufacture_date=excluded.manufacture_date,
+                 serial_number=excluded.serial_number,
+                 commissioning_date=excluded.commissioning_date,
+                 purchase_condition=excluded.purchase_condition,
+                 technical_info=excluded.technical_info,
+                 energy_consumption=excluded.energy_consumption,
+                 other_energy=excluded.other_energy,
+                 cooling_system=excluded.cooling_system,
+                 dimensions_length=excluded.dimensions_length,
+                 dimensions_width=excluded.dimensions_width,
+                 dimensions_height=excluded.dimensions_height,
+                 accessories=excluded.accessories,
+                 operation_description=excluded.operation_description,
+                 notes=excluded.notes,
+                 updated_at=excluded.updated_at""",
+            (
+                cod, name, name, cod,
+                passport_vals["manufacturer_country"], passport_vals["manufacturer_company"],
+                passport_vals["useful_life"], passport_vals["manufacture_date"],
+                passport_vals["serial_number"], passport_vals["commissioning_date"],
+                passport_vals["purchase_condition"], passport_vals["technical_info"],
+                passport_vals["energy_consumption"], passport_vals["other_energy"],
+                passport_vals["cooling_system"], passport_vals["dimensions_length"],
+                passport_vals["dimensions_width"], passport_vals["dimensions_height"],
+                passport_vals["accessories"], passport_vals["operation_description"],
+                passport_vals["notes"], now,
+            ),
+        )
+
+        products = ["پراید", "پژو", "XUM", "TU3", "نیسان", "پیکان", "OHVG", "TU5", "توضیحات"]
+        flags = {p: request.form.get("product__" + p, "").strip() for p in products}
+        db.execute(
+            """INSERT INTO machine_product_usage(device_cod,product_flags,updated_at)
+               VALUES(?,?,?)
+               ON CONFLICT(device_cod) DO UPDATE SET
+                 product_flags=excluded.product_flags,updated_at=excluded.updated_at""",
+            (cod, json.dumps(flags, ensure_ascii=False), now),
+        )
+        db.commit()
+        flash("دستگاه و شناسنامه ماشین‌آلات با موفقیت ذخیره شد.", "success")
+        return redirect(url_for("devices", edit=cod))
 
     edit_cod = request.args.get("edit")
-    edit = None
+    edit = db.execute(
+        "SELECT * FROM dastgahjadid WHERE cod = ?", (edit_cod,)
+    ).fetchone() if edit_cod else None
+    passport = db.execute(
+        "SELECT * FROM machine_passport WHERE device_cod = ?", (edit_cod,)
+    ).fetchone() if edit_cod else None
+
+    usage = {}
     if edit_cod:
-        edit = db.execute("SELECT * FROM dastgahjadid WHERE cod = ?", (edit_cod,)).fetchone()
+        ur = db.execute(
+            "SELECT product_flags FROM machine_product_usage WHERE device_cod = ?",
+            (edit_cod,),
+        ).fetchone()
+        if ur:
+            try:
+                usage = json.loads(ur["product_flags"] or "{}")
+            except Exception:
+                usage = {}
 
     device_list = db.execute("SELECT * FROM dastgahjadid ORDER BY cod").fetchall()
-    return render_template("devices.html", devices=device_list, edit=edit)
+    return render_template(
+        "devices.html",
+        devices=device_list,
+        edit=edit,
+        passport=passport,
+        usage=usage,
+        product_headers=["پراید","پژو","XUM","TU3","نیسان","پیکان","OHVG","TU5","توضیحات"],
+    )
 
 
 @app.route("/devices/<cod>/delete", methods=["POST"])
