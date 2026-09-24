@@ -63,6 +63,17 @@
             </div>
 
             <div class="col-12">
+              <label class="form-label required">وضعیت فعلی دستگاه</label><br>
+              {% for key, label in device_operational_status_options %}
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="device_operational_status"
+                       id="device_status_{{ key }}" value="{{ key }}" required>
+                <label class="form-check-label" for="device_status_{{ key }}">{{ label }}</label>
+              </div>
+              {% endfor %}
+            </div>
+
+            <div class="col-12">
               <label class="form-label required">شرح خرابی / نقص</label>
               <textarea name="sharhenaghs" class="form-control" rows="3" required></textarea>
             </div>
