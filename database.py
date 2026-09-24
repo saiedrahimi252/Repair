@@ -48,7 +48,26 @@ except ImportError:  # pragma: no cover
 # ============================================================== connection
 
 def _build_connection_string() -> str:
-    driver = os.environ.get("MSSQL_DRIVER", "SQL Server Native Client 11.0")
+    requested_driver = os.environ.get("MSSQL_DRIVER", "SQL Server Native Client 11.0").strip()
+    installed_drivers = pyodbc.drivers()
+
+    # اگر .env یا تنظیمات قدیمی به درایوری اشاره کند که روی این ویندوز
+    # نصب نیست، به‌صورت خودکار از یکی از درایورهای موجود استفاده کن.
+    driver = requested_driver
+    if driver not in installed_drivers:
+        preferred = [
+            "SQL Server Native Client 11.0",
+            "ODBC Driver 17 for SQL Server",
+            "ODBC Driver 18 for SQL Server",
+            "SQL Server",
+        ]
+        driver = next((name for name in preferred if name in installed_drivers), "")
+    if not driver:
+        raise RuntimeError(
+            "هیچ ODBC Driver سازگار با SQL Server پیدا نشد. "
+            f"درایورهای نصب‌شده: {installed_drivers}"
+        )
+
     server = os.environ.get("MSSQL_SERVER", "localhost")
     port = os.environ.get("MSSQL_PORT", "").strip()
     server_part = f"{server},{port}" if port else server
