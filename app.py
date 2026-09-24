@@ -24,6 +24,9 @@ from flask import (
 )
 
 from database import get_connection
+from tenant import (PLANS, ensure_master_database, master_users_exist, create_master_user,
+                    verify_master_user, list_companies, get_company, create_company,
+                    update_company, company_allowed, company_limit)
 from auth import (
     ROLES, CAN_CREATE_REQUEST, CAN_REVIEW_REQUEST, ADMIN_ONLY,
     CAN_DAILY_INSPECTION, CAN_PREVENTIVE_INSPECTION, GENERAL_ACCESS_ROLES,
@@ -200,19 +203,22 @@ def inject_user():
 
 @app.before_request
 def require_setup_and_login():
-    """
-    اگر هنوز هیچ کاربری در سیستم ساخته نشده، همه‌ی درخواست‌ها به صفحه‌ی
-    «راه‌اندازی اولیه» هدایت می‌شوند تا اولین حساب مدیر ساخته شود.
-    مسیرهای استاتیک و خود صفحات ورود/راه‌اندازی از این قانون مستثنی‌اند.
-    """
-    exempt_endpoints = {"login", "setup", "static"}
+    """کنترل اولیه چندشرکتی."""
+    exempt_endpoints={"login","setup","select_company","master_setup","master_login","master_logout","static"}
     if request.endpoint in exempt_endpoints:
         return None
-
-    db = get_db()
-    user_count = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-    if user_count == 0:
-        return redirect(url_for("setup"))
+    if request.endpoint and request.endpoint.startswith("master_"):
+        ensure_master_database()
+        if not session.get("master_user_id"):
+            return redirect(url_for("master_login"))
+        return None
+    if not session.get("company_id"):
+        return redirect(url_for("select_company"))
+    company=get_company(session["company_id"])
+    if not company or not company_allowed(company["id"]):
+        session.pop("company_id",None); session.pop("company_db",None); session.pop("company_name",None); session.pop("user_id",None)
+        flash("این شرکت غیرفعال شده یا دسترسی آن منقضی شده است.","error")
+        return redirect(url_for("select_company"))
     return None
 
 
@@ -301,39 +307,76 @@ def handle_bad_request(_e):
 
 @app.route("/setup", methods=["GET", "POST"])
 def setup():
-    """ساخت اولین حساب مدیر سیستم (فقط وقتی هیچ کاربری وجود ندارد)."""
-    db = get_db()
-    user_count = db.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-    if user_count > 0:
-        return redirect(url_for("login"))
+    return redirect(url_for("master_setup"))
 
-    if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
-        password2 = request.form.get("password2", "")
-        full_name = request.form.get("full_name", "").strip()
-
-        if not username or not password:
-            flash("نام کاربری و رمز عبور الزامی است.", "error")
-        elif password != password2:
-            flash("رمز عبور و تکرار آن یکسان نیستند.", "error")
-        elif len(password) < 8:
-            flash("رمز عبور باید حداقل ۸ کاراکتر باشد.", "error")
+@app.route("/select-company", methods=["GET", "POST"])
+def select_company():
+    ensure_master_database()
+    if request.method=="POST":
+        company_id=request.form.get("company_id",type=int)
+        company=get_company(company_id)
+        if not company or not company_allowed(company_id):
+            flash("شرکت انتخاب‌شده معتبر نیست یا دسترسی آن غیرفعال است.","error")
         else:
-            db.execute(
-                "INSERT INTO users (username, password_hash, full_name, role, created_at) "
-                "VALUES (?,?,?,'admin',?)",
-                (username, hash_password(password), full_name, datetime.datetime.now().isoformat()),
-            )
-            db.commit()
-            flash("حساب مدیر سیستم با موفقیت ساخته شد. حالا وارد شوید.", "success")
+            session.clear()
+            session["company_id"]=company["id"]; session["company_db"]=company["db_name"]; session["company_name"]=company["name"]
             return redirect(url_for("login"))
+    companies=[c for c in list_companies() if c["is_active"]]
+    return render_template("select_company.html",companies=companies)
 
-    return render_template("setup.html")
+@app.route("/master/setup", methods=["GET","POST"])
+def master_setup():
+    ensure_master_database()
+    if master_users_exist(): return redirect(url_for("master_login"))
+    if request.method=="POST":
+        username=request.form.get("username","").strip(); password=request.form.get("password",""); password2=request.form.get("password2",""); full_name=request.form.get("full_name","").strip()
+        if not username or not password: flash("نام کاربری و رمز عبور الزامی است.","error")
+        elif password!=password2: flash("رمز عبور و تکرار آن یکسان نیستند.","error")
+        elif len(password)<8: flash("رمز عبور باید حداقل ۸ کاراکتر باشد.","error")
+        else:
+            create_master_user(username,password,full_name); flash("حساب مدیر اصلی ساخته شد. اکنون وارد شوید.","success"); return redirect(url_for("master_login"))
+    return render_template("master_setup.html")
+
+@app.route("/master/login", methods=["GET","POST"])
+def master_login():
+    ensure_master_database()
+    if not master_users_exist(): return redirect(url_for("master_setup"))
+    if request.method=="POST":
+        user=verify_master_user(request.form.get("username","").strip(),request.form.get("password",""))
+        if not user: flash("نام کاربری یا رمز عبور مدیر اصلی اشتباه است.","error")
+        else:
+            session["master_user_id"]=user["id"]; session["master_username"]=user["username"]; session["master_full_name"]=user["full_name"]
+            return redirect(url_for("master_companies"))
+    return render_template("master_login.html")
+
+@app.route("/master/logout")
+def master_logout():
+    session.pop("master_user_id",None); session.pop("master_username",None); session.pop("master_full_name",None)
+    return redirect(url_for("select_company"))
+
+@app.route("/master/companies", methods=["GET","POST"])
+def master_companies():
+    if request.method=="POST":
+        try:
+            create_company(request.form.get("name",""),request.form.get("admin_username",""),request.form.get("admin_password",""),request.form.get("admin_full_name",""),request.form.get("plan_code","free"))
+            flash("شرکت جدید با موفقیت ساخته شد.","success")
+        except Exception as exc: flash(str(exc),"error")
+        return redirect(url_for("master_companies"))
+    return render_template("master_companies.html",companies=list_companies(),plans=PLANS)
+
+@app.route("/master/companies/<int:company_id>/update", methods=["POST"])
+def master_company_update(company_id):
+    try:
+        update_company(company_id,plan_code=request.form.get("plan_code"),is_active=request.form.get("is_active")=="1",expires_at=(request.form.get("expires_at","").strip() or None))
+        flash("تنظیمات شرکت به‌روزرسانی شد.","success")
+    except Exception as exc: flash(str(exc),"error")
+    return redirect(url_for("master_companies"))
 
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    if not session.get("company_id"):
+        return redirect(url_for("select_company"))
     db = get_db()
     if request.method == "POST":
         username = request.form.get("username", "").strip()
@@ -367,7 +410,7 @@ def login():
             next_url = safe_next_url(request.args.get("next"))
             return redirect(next_url)
 
-    return render_template("login.html")
+    return render_template("login.html", company_name=session.get("company_name"))
 
 
 @app.route("/logout")
@@ -381,7 +424,7 @@ def logout():
         db.commit()
     logout_user()
     flash("با موفقیت خارج شدید.", "success")
-    return redirect(url_for("login"))
+    return redirect(url_for("select_company"))
 
 
 @app.route("/admin/audit-log")
