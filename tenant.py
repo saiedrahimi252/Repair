@@ -36,7 +36,6 @@ def ensure_master_database():
         if not exists:
             # SQL Server اجازه CREATE DATABASE را داخل تراکنش نمی‌دهد.
             # این اتصال عمداً با autocommit=True باز می‌شود.
-            root.close()
             raw_root = pyodbc.connect(_build_connection_string("master"), autocommit=True)
             try:
                 raw_root.execute("CREATE DATABASE [repair_master]")
