@@ -254,6 +254,9 @@ def inject_csrf():
 
 @app.before_request
 def check_csrf():
+    if request.method == "POST" and session.get("master_impersonation"):
+        flash("مدیر اصلی در حالت مشاهده است و امکان تغییر اطلاعات شرکت را ندارد.", "error")
+        return redirect(url_for("index"))
     if request.method == "POST":
         sent = request.form.get("csrf_token", "")
         expected = session.get("_csrf_token", "")
@@ -364,6 +367,42 @@ def master_companies():
         return redirect(url_for("master_companies"))
     return render_template("master_companies.html",companies=list_companies(),plans=PLANS)
 
+@app.route("/master/companies/<int:company_id>/enter")
+def master_enter_company(company_id):
+    company = get_company(company_id)
+    if not company or not company_allowed(company_id):
+        flash("این شرکت پیدا نشد یا دسترسی آن فعال نیست.", "error")
+        return redirect(url_for("master_companies"))
+
+    db = get_connection(company["db_name"])
+    try:
+        admin = db.execute(
+            "SELECT TOP 1 * FROM users WHERE role = ? AND is_active = 1 ORDER BY id",
+            ("admin",),
+        ).fetchone()
+    finally:
+        db.close()
+
+    if not admin:
+        flash("برای این شرکت مدیر فعالی پیدا نشد؛ ابتدا یک مدیر شرکت ایجاد کنید.", "error")
+        return redirect(url_for("master_companies"))
+
+    session["company_id"] = company["id"]
+    session["company_db"] = company["db_name"]
+    session["company_name"] = company["name"]
+    login_user(admin)
+    session["master_impersonation"] = True
+
+    try:
+        from tenant import record_master_access
+        record_master_access(session.get("master_user_id"), company["id"], company["name"], request.remote_addr)
+    except Exception:
+        pass
+
+    flash("در حال مشاهده پنل شرکت «%s» هستید. این حالت فقط مشاهده است." % company["name"], "success")
+    return redirect(url_for("index"))
+
+
 @app.route("/master/companies/<int:company_id>/update", methods=["POST"])
 def master_company_update(company_id):
     try:
@@ -413,8 +452,20 @@ def login():
     return render_template("login.html", company_name=session.get("company_name"))
 
 
+@app.route("/master/return")
+def master_return():
+    if not session.get("master_user_id"):
+        return redirect(url_for("select_company"))
+    session.pop("master_impersonation", None)
+    for key in ("company_id", "company_db", "company_name", "user_id", "username", "full_name", "role"):
+        session.pop(key, None)
+    return redirect(url_for("master_companies"))
+
+
 @app.route("/logout")
 def logout():
+    if session.get("master_impersonation"):
+        return redirect(url_for("master_return"))
     if session.get("user_id"):
         db = get_db()
         db.execute(
