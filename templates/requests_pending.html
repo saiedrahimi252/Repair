@@ -11,12 +11,19 @@
           <th>نوع کار</th><th>وضعیت دستگاه</th><th>شرح خرابی</th><th>درخواست کننده</th><th></th>
         </tr></thead>
         <tbody>
+          <style>
+            .device-status-stopped { background-color: #f8d7da !important; color: #842029 !important; font-weight: 700; }
+            .device-status-will-stop { background-color: #fff3cd !important; color: #664d03 !important; font-weight: 700; }
+            .device-status-running { background-color: #d1e7dd !important; color: #0f5132 !important; font-weight: 700; }
+          </style>
           {% for r in rows %}
           <tr>
             <td>{{ r.shomare_darkhast }}</td><td>{{ r.tarikhdarkhast }}</td><td>{{ r.timedarkhast }}</td>
             <td>{{ r.codedastgah }}</td><td>{{ r.namdastgah }}</td>
             <td>{{ r.work_type_label }}</td>
-            <td>{{ r.device_operational_status_label }}</td>
+            <td class="{% if r.device_operational_status == 'stopped' %}device-status-stopped{% elif r.device_operational_status == 'will_stop' %}device-status-will-stop{% elif r.device_operational_status == 'running' %}device-status-running{% endif %}">
+              {{ r.device_operational_status_label }}
+            </td>
             <td>{{ r.sharhenaghs }}</td><td>{{ r.darkhastkonande }}</td>
             <td class="text-nowrap">
               <a href="{{ url_for('request_complete', request_id=r.id) }}" class="btn btn-sm btn-primary">بررسی و تکمیل</a>
