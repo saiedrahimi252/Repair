@@ -48,12 +48,12 @@ except ImportError:  # pragma: no cover
 # ============================================================== connection
 
 def _build_connection_string() -> str:
-    driver = os.environ.get("MSSQL_DRIVER", "ODBC Driver 18 for SQL Server")
+    driver = os.environ.get("MSSQL_DRIVER", "SQL Server Native Client 11.0")
     server = os.environ.get("MSSQL_SERVER", "localhost")
     port = os.environ.get("MSSQL_PORT", "").strip()
     server_part = f"{server},{port}" if port else server
     database = os.environ.get("MSSQL_DATABASE", "repair")
-    encrypt = os.environ.get("MSSQL_ENCRYPT", "yes")
+    encrypt = os.environ.get("MSSQL_ENCRYPT", "no")
     trust_cert = os.environ.get("MSSQL_TRUST_SERVER_CERTIFICATE", "yes")
 
     parts = [
@@ -64,7 +64,7 @@ def _build_connection_string() -> str:
         f"TrustServerCertificate={trust_cert}",
     ]
 
-    trusted = os.environ.get("MSSQL_TRUSTED_CONNECTION", "0") == "1"
+    trusted = os.environ.get("MSSQL_TRUSTED_CONNECTION", "1") == "1"
     if trusted:
         parts.append("Trusted_Connection=yes")
     else:
