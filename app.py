@@ -1312,7 +1312,7 @@ def request_new():
             db.rollback()
             raise
 
-        flash(f"درخواست شماره {request_number} با موفقیت ثبت شد.", "success")
+        flash(f"درخواست شماره {request_number} برای دستگاه {form.get('codedastgah', '').strip()} با موفقیت ثبت شد.", "success")
         return redirect(url_for("request_new"))
 
     max_number = db.execute("SELECT MAX(shomare_darkhast) FROM data").fetchone()[0]
@@ -1440,6 +1440,14 @@ def request_edit(request_id):
             names = form.getlist("contractor_name[]")
             dates = form.getlist("contractor_date[]")
             hours = form.getlist("contractor_hours[]")
+
+            # بستن درخواست فقط وقتی مجاز است که حداقل یک مجری برای آن ثبت شده باشد.
+            # این کنترل سمت سرور است تا حتی با دستکاری فرم هم امکان بستن بدون مجری نباشد.
+            valid_contractors = [c.strip() for c in cods if c and c.strip()]
+            if not valid_contractors:
+                flash("قبل از تکمیل و بستن درخواست، حداقل یک مجری ثبت کنید.", "error")
+                return redirect(url_for("request_complete", request_id=request_id, next=safe_next_url(request.form.get("next")) or url_for("requests_pending")))
+
             for cod, name, date, hrs in zip(cods, names, dates, hours):
                 db.execute(
                     """INSERT INTO mojry (kod_mojri, nam_mojri, shomare_darkhast, tarikh, saat, kod_dastgah)
@@ -1589,6 +1597,9 @@ def request_complete(request_id):
                 )
 
         flash(f"درخواست شماره {row['shomare_darkhast']} با موفقیت تکمیل شد.", "success")
+        next_url = safe_next_url(request.form.get("next"))
+        if next_url:
+            return redirect(next_url)
         return redirect(url_for("request_detail", request_id=request_id))
 
     today = today_jalali_str()
@@ -1607,6 +1618,7 @@ def request_complete(request_id):
         work_type_label=_work_type_label(row), work_units=WORK_UNITS, delay_causes=DELAY_CAUSES,
         contractors=contractor_list, goods_list=goods_list,
         existing_mojry=existing_mojry, existing_materials=existing_materials,
+        next_url=safe_next_url(request.args.get("next")) or url_for("requests_pending"),
     )
 
 
@@ -1712,9 +1724,11 @@ def request_detail(request_id):
         "SELECT name, qty, vahed FROM mvademasrafi WHERE shomare_darkhast = ?", (request_id,)
     ).fetchall()
 
+    next_url = safe_next_url(request.args.get("next"))
     return render_template(
         "request_detail.html", row=row, fields=fields,
         mojry_rows=mojry_rows, material_rows=material_rows,
+        next_url=next_url or url_for("requests_search"),
     )
 
 
@@ -2076,6 +2090,9 @@ def preventive_inspection_new():
         )
         db.commit()
         flash("بازدید پیشگیرانه با موفقیت ثبت شد.", "success")
+        next_url = safe_next_url(request.form.get("next"))
+        if next_url:
+            return redirect(next_url)
         return redirect(url_for("preventive_inspection_new"))
 
     device_list = db.execute("SELECT cod, name FROM dastgahjadid ORDER BY name").fetchall()
@@ -2098,6 +2115,7 @@ def preventive_inspection_new():
         status_options=OVERALL_STATUS_OPTIONS,
         prefill_cod=prefill_cod, prefill_name=prefill_name,
         prefill_type=prefill_type, prefill_visitor=prefill_visitor,
+        next_url=safe_next_url(request.args.get("next")) or url_for("maintenance_recommendations"),
     )
 
 

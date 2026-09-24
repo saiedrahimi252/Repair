@@ -653,10 +653,39 @@ def _migrate_request_number(conn: Connection) -> None:
     conn.commit()
 
 
+def _ensure_default_constraint(conn: Connection, table: str, column: str, default_sql: str, constraint_name: str) -> None:
+    """
+    اگر ستون NOT NULL باشد ولی مقدار پیش‌فرض (DEFAULT) نداشته باشد، درجش
+    می‌کند. این برای رفع یک اشکال در نسخه‌ی اولیه‌ی اسکریپت مهاجرت است
+    که مقدار DEFAULT چند ستون (مثل users.is_active) از قلم افتاده بود و
+    باعث خطای «Cannot insert the value NULL» می‌شد وقتی کد آن ستون را
+    در INSERT ذکر نمی‌کرد (و به‌درستی به DEFAULT تکیه می‌کرد).
+    """
+    exists = conn.execute(
+        "SELECT 1 FROM sys.default_constraints dc "
+        "JOIN sys.columns c ON dc.parent_object_id = c.object_id AND dc.parent_column_id = c.column_id "
+        "WHERE dc.parent_object_id = OBJECT_ID(?) AND c.name = ?",
+        (f"dbo.{table}", column),
+    ).fetchone()
+    if not exists:
+        conn.execute(
+            f"ALTER TABLE dbo.{table} ADD CONSTRAINT {constraint_name} DEFAULT {default_sql} FOR [{column}]"
+        )
+        conn.commit()
+
+
+def _migrate_missing_defaults(conn: Connection) -> None:
+    _ensure_default_constraint(conn, "users", "is_active", "1", "DF_users_is_active")
+    _ensure_default_constraint(conn, "users", "role", "'viewer'", "DF_users_role")
+    _ensure_default_constraint(conn, "monthly_repair_cost", "amount", "0", "DF_monthly_repair_cost_amount")
+
+
 def get_connection() -> Connection:
     raw = pyodbc.connect(_build_connection_string(), autocommit=False)
     conn = Connection(raw)
     _ensure_schema(conn)
     _migrate_status_column(conn)
     _migrate_request_number(conn)
+    _migrate_missing_defaults(conn)
     return conn
+
