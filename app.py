@@ -184,7 +184,7 @@ def _migrate_key_schema(db):
 
 def get_db():
     if "db" not in g:
-        g.db = get_connection()
+        g.db = get_connection(session.get("company_db") or "repair")
         _migrate_key_schema(g.db)
     return g.db
 
@@ -457,6 +457,10 @@ def admin_users():
         elif db.execute("SELECT 1 FROM users WHERE username = ?", (username,)).fetchone():
             flash("این نام کاربری قبلاً استفاده شده است.", "error")
         else:
+            company, used, maximum = company_limit(session["company_id"], "users")
+            if maximum is not None and used >= maximum:
+                flash(f"سقف کاربران پلن «{PLANS[company['plan_code']]['name']}» پر شده است ({maximum} کاربر).", "error")
+                return redirect(url_for("admin_users"))
             db.execute(
                 "INSERT INTO users (username, password_hash, full_name, role, created_at) VALUES (?,?,?,?,?)",
                 (username, hash_password(password), full_name, role, datetime.datetime.now().isoformat()),
@@ -1174,6 +1178,12 @@ def devices():
         if not cod or not name:
             flash("کد و نام دستگاه الزامی است.", "error")
         else:
+            existing_device = db.execute("SELECT 1 FROM dastgahjadid WHERE cod = ?", (cod,)).fetchone()
+            if not existing_device:
+                company, used, maximum = company_limit(session["company_id"], "devices")
+                if maximum is not None and used >= maximum:
+                    flash(f"سقف دستگاه‌های پلن «{PLANS[company['plan_code']]['name']}» پر شده است ({maximum} دستگاه).", "error")
+                    return redirect(url_for("devices"))
             def num(field):
                 val = request.form.get(field, "").strip()
                 try:
