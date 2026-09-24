@@ -5,6 +5,8 @@
 .device-form .form-control,.device-form .form-select{font-size:13px}
 .device-form textarea{min-height:75px}
 .section-title{background:#f1f5f9;border-radius:8px;padding:10px;margin:18px 0 12px;font-weight:700}
+.product-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.product-row .product-name{flex:1}
 </style>
 <div class="row">
   <div class="col-lg-5">
@@ -45,7 +47,36 @@
           </div>
           {% endfor %}
 
-          <button type="submit" class="btn btn-primary w-100">ذخیره دستگاه و شناسنامه</button>
+          <div class="section-title">۳) محصولات مورد استفاده</div>
+          <div class="mb-2 text-muted small">
+            هر تعداد محصول که لازم دارید اضافه کنید؛ نام محصول را خودتان بنویسید. تعداد محصولات محدود نیست.
+          </div>
+          <div id="products-container">
+            {% if product_items %}
+              {% for product_name, product_value in product_items %}
+              <div class="product-row">
+                <input type="text" name="product_name[]" class="form-control product-name" value="{{ product_name }}" placeholder="نام محصول">
+                <label class="form-check mb-0 text-nowrap">
+                  <input type="checkbox" name="product_used_{{ loop.index0 }}" value="1" class="form-check-input" {% if product_value in ['1','l',1,true] %}checked{% endif %}>
+                  مورد استفاده است
+                </label>
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeProduct(this)">حذف</button>
+              </div>
+              {% endfor %}
+            {% else %}
+              <div class="product-row">
+                <input type="text" name="product_name[]" class="form-control product-name" placeholder="نام محصول">
+                <label class="form-check mb-0 text-nowrap">
+                  <input type="checkbox" name="product_used_0" value="1" class="form-check-input">
+                  مورد استفاده است
+                </label>
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="removeProduct(this)">حذف</button>
+              </div>
+            {% endif %}
+          </div>
+          <button type="button" class="btn btn-outline-primary btn-sm mt-1" onclick="addProduct()">+ افزودن محصول</button>
+
+          <button type="submit" class="btn btn-primary w-100 mt-3">ذخیره دستگاه و شناسنامه</button>
           {% if edit %}<a href="{{ url_for('devices') }}" class="btn btn-secondary w-100 mt-2">ثبت دستگاه جدید</a>{% endif %}
         </form>
       </div>
@@ -84,4 +115,24 @@
     </div>
   </div>
 </div>
+
+<script>
+function addProduct() {
+  const container = document.getElementById('products-container');
+  const index = container.querySelectorAll('.product-row').length;
+  const row = document.createElement('div');
+  row.className = 'product-row';
+  row.innerHTML =
+    '<input type="text" name="product_name[]" class="form-control product-name" placeholder="نام محصول">' +
+    '<label class="form-check mb-0 text-nowrap">' +
+    '<input type="checkbox" name="product_used_' + index + '" value="1" class="form-check-input">' +
+    ' مورد استفاده است</label>' +
+    '<button type="button" class="btn btn-outline-danger btn-sm" onclick="removeProduct(this)">حذف</button>';
+  container.appendChild(row);
+}
+function removeProduct(button) {
+  const row = button.closest('.product-row');
+  if (row) row.remove();
+}
+</script>
 {% endblock %}
