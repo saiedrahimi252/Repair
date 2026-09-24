@@ -75,6 +75,13 @@ DELAY_CAUSES = [
 ]
 DEPARTMENTS = WORK_UNITS + DELAY_CAUSES  # برای گزارش نفر ساعت که هر دو گروه را نشان می‌دهد
 
+DEVICE_OPERATIONAL_STATUS_OPTIONS = [
+    ("stopped", "دستگاه متوقف شده"),
+    ("will_stop", "دستگاه متوقف خواهد شد"),
+    ("running", "دستگاه در حال کار است"),
+]
+DEVICE_OPERATIONAL_STATUS_VALUES = {key for key, _ in DEVICE_OPERATIONAL_STATUS_OPTIONS}
+
 # چک‌لیست بازدید روزانه (قبل از شروع به کار) — هر مورد یعنی «بررسی و تایید شد»
 DAILY_CHECKLIST = [
     ("ravankari", "روانکاری و روغن‌کاری دستگاه"),
@@ -1283,6 +1290,10 @@ def request_new():
         if not form.get("sharhenaghs", "").strip():
             flash("شرح خرابی را وارد کنید.", "error")
             return redirect(url_for("request_new"))
+        device_operational_status = form.get("device_operational_status", "").strip()
+        if device_operational_status not in DEVICE_OPERATIONAL_STATUS_VALUES:
+            flash("وضعیت فعلی دستگاه را انتخاب کنید.", "error")
+            return redirect(url_for("request_new"))
 
         # شماره درخواست مستقل از id داخلی است. قفل تراکنش باعث می‌شود اگر
         # همزمان چند نفر درخواست ثبت کنند، دو نفر یک شماره نگیرند.
@@ -1293,15 +1304,16 @@ def request_new():
             cur = db.execute(
                 """INSERT INTO data (
                     shomare_darkhast, etefaghi, pishgirane, asasy, tekrary, sayer,
-                    namdastgah, codedastgah, sharhenaghs,
+                    namdastgah, codedastgah, sharhenaghs, device_operational_status,
                     darkhastkonande, tarikhdarkhast, timedarkhast, status
-                ) VALUES (?,?,?,?,?,?, ?,?,?, ?,?,?, 'pending')""",
+                ) VALUES (?,?,?,?,?,?, ?,?,?,?, ?,?,?, 'pending')""",
                 (
                     request_number,
                     *(1 if form.get(f"wt_{k}") else 0 for k, _ in WORK_TYPES),
                     form.get("namdastgah", "").strip(),
                     form.get("codedastgah", "").strip(),
                     form.get("sharhenaghs", "").strip(),
+                    device_operational_status,
                     enforced_person_name(form.get("darkhastkonande", "")),
                     *enforced_datetime(form.get("tarikhdarkhast", ""), form.get("timedarkhast", "")),
                 ),
@@ -1523,6 +1535,9 @@ def requests_pending():
     for r in rows:
         row = dict(r)
         row["work_type_label"] = _work_type_label(r)
+        row["device_operational_status_label"] = dict(DEVICE_OPERATIONAL_STATUS_OPTIONS).get(
+            row.get("device_operational_status"), "ثبت نشده"
+        )
         rows_with_label.append(row)
     return render_template("requests_pending.html", rows=rows_with_label)
 
@@ -1615,7 +1630,10 @@ def request_complete(request_id):
 
     return render_template(
         "request_complete.html", row=row, today=today, now=now,
-        work_type_label=_work_type_label(row), work_units=WORK_UNITS, delay_causes=DELAY_CAUSES,
+        work_type_label=_work_type_label(row),
+        device_operational_status_label=dict(DEVICE_OPERATIONAL_STATUS_OPTIONS).get(
+            row["device_operational_status"], "ثبت نشده"
+        ), work_units=WORK_UNITS, delay_causes=DELAY_CAUSES,
         contractors=contractor_list, goods_list=goods_list,
         existing_mojry=existing_mojry, existing_materials=existing_materials,
         next_url=safe_next_url(request.args.get("next")) or url_for("requests_pending"),
@@ -1706,7 +1724,8 @@ def request_detail(request_id):
         ("shomare_darkhast", "شماره درخواست"), ("status", "وضعیت"),
         ("tarikhdarkhast", "تاریخ درخواست"), ("timedarkhast", "ساعت درخواست"),
         ("darkhastkonande", "درخواست کننده"), ("codedastgah", "کد دستگاه"), ("namdastgah", "نام دستگاه"),
-        ("sharhenaghs", "شرح نقص"), ("sharhekareanjamshode", "شرح کار انجام شده"),
+        ("sharhenaghs", "شرح نقص"), ("device_operational_status", "وضعیت دستگاه هنگام ثبت درخواست"),
+        ("sharhekareanjamshode", "شرح کار انجام شده"),
         ("tarikhstart", "تاریخ شروع"), ("timestart", "ساعت شروع"),
         ("tarikhend", "تاریخ اتمام"), ("timeEnd", "ساعت اتمام"),
         ("timetavaghofdastgah", "میزان ساعت توقف دستگاه"), ("tozihat", "توضیحات"),
