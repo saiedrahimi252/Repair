@@ -1336,6 +1336,7 @@ def request_new():
     return render_template(
         "request_new.html", next_id=next_id, today=today, now=now,
         work_types=WORK_TYPES, devices=device_list,
+        device_operational_status_options=DEVICE_OPERATIONAL_STATUS_OPTIONS,
     )
 
 
