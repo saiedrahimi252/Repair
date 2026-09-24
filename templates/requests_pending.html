@@ -8,7 +8,7 @@
       <table class="table table-striped table-bordered">
         <thead><tr>
           <th>شماره</th><th>تاریخ</th><th>ساعت</th><th>کد دستگاه</th><th>نام دستگاه</th>
-          <th>نوع کار</th><th>شرح خرابی</th><th>درخواست کننده</th><th></th>
+          <th>نوع کار</th><th>وضعیت دستگاه</th><th>شرح خرابی</th><th>درخواست کننده</th><th></th>
         </tr></thead>
         <tbody>
           {% for r in rows %}
@@ -16,6 +16,7 @@
             <td>{{ r.shomare_darkhast }}</td><td>{{ r.tarikhdarkhast }}</td><td>{{ r.timedarkhast }}</td>
             <td>{{ r.codedastgah }}</td><td>{{ r.namdastgah }}</td>
             <td>{{ r.work_type_label }}</td>
+            <td>{{ r.device_operational_status_label }}</td>
             <td>{{ r.sharhenaghs }}</td><td>{{ r.darkhastkonande }}</td>
             <td class="text-nowrap">
               <a href="{{ url_for('request_complete', request_id=r.id) }}" class="btn btn-sm btn-primary">بررسی و تکمیل</a>
@@ -29,7 +30,7 @@
             </td>
           </tr>
           {% else %}
-          <tr><td colspan="9" class="text-muted">درخواست در انتظاری وجود ندارد.</td></tr>
+          <tr><td colspan="10" class="text-muted">درخواست در انتظاری وجود ندارد.</td></tr>
           {% endfor %}
         </tbody>
       </table>
