@@ -632,12 +632,16 @@ def _column_exists(conn: Connection, table: str, column: str) -> bool:
 
 def _migrate_status_column(conn: Connection) -> None:
     """
-    ستون «status» را برای گردش کار دومرحله‌ای اضافه می‌کند (همان منطق
-    نسخه‌ی SQLite قبلی، این‌بار با INFORMATION_SCHEMA به‌جای PRAGMA).
+    ستون «status» را برای گردش کار دومرحله‌ای اضافه می‌کند و ستون
+    وضعیت عملیاتی دستگاه را نیز برای ثبت وضعیت لحظه‌ای خرابی اضافه می‌کند.
     """
     if not _column_exists(conn, "data", "status"):
         conn.execute("ALTER TABLE data ADD [status] NVARCHAR(50)")
         conn.execute("UPDATE data SET status = 'completed' WHERE status IS NULL")
+        conn.commit()
+
+    if not _column_exists(conn, "data", "device_operational_status"):
+        conn.execute("ALTER TABLE data ADD [device_operational_status] NVARCHAR(50) NULL")
         conn.commit()
 
 
