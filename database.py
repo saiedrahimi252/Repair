@@ -47,7 +47,7 @@ except ImportError:  # pragma: no cover
 
 # ============================================================== connection
 
-def _build_connection_string() -> str:
+def _build_connection_string(database_override: str = None) -> str:
     requested_driver = os.environ.get("MSSQL_DRIVER", "SQL Server Native Client 11.0").strip()
     installed_drivers = pyodbc.drivers()
 
@@ -71,7 +71,7 @@ def _build_connection_string() -> str:
     server = os.environ.get("MSSQL_SERVER", "localhost")
     port = os.environ.get("MSSQL_PORT", "").strip()
     server_part = f"{server},{port}" if port else server
-    database = os.environ.get("MSSQL_DATABASE", "repair")
+    database = database_override or os.environ.get("MSSQL_DATABASE", "repair")
     encrypt = os.environ.get("MSSQL_ENCRYPT", "no")
     trust_cert = os.environ.get("MSSQL_TRUST_SERVER_CERTIFICATE", "yes")
 
@@ -703,8 +703,8 @@ def _migrate_missing_defaults(conn: Connection) -> None:
     _ensure_default_constraint(conn, "monthly_repair_cost", "amount", "0", "DF_monthly_repair_cost_amount")
 
 
-def get_connection() -> Connection:
-    raw = pyodbc.connect(_build_connection_string(), autocommit=False)
+def get_connection(database_name: str = None) -> Connection:
+    raw = pyodbc.connect(_build_connection_string(database_name), autocommit=False)
     conn = Connection(raw)
     _ensure_schema(conn)
     _migrate_status_column(conn)
