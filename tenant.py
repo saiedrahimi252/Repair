@@ -34,8 +34,14 @@ def ensure_master_database():
             "SELECT 1 FROM sys.databases WHERE name = ?", ("repair_master",)
         ).fetchone()
         if not exists:
-            root.execute("CREATE DATABASE [repair_master]")
-            root.commit()
+            # SQL Server اجازه CREATE DATABASE را داخل تراکنش نمی‌دهد.
+            # این اتصال عمداً با autocommit=True باز می‌شود.
+            root.close()
+            raw_root = pyodbc.connect(_build_connection_string("master"), autocommit=True)
+            try:
+                raw_root.execute("CREATE DATABASE [repair_master]")
+            finally:
+                raw_root.close()
     finally:
         root.close()
 
@@ -189,12 +195,12 @@ def create_company(name, admin_username, admin_password, admin_full_name, plan_c
             candidate = f"{base[:70]}_{n}"
             n += 1
 
-        root = master_connection()
+        # CREATE DATABASE باید خارج از تراکنش اجرا شود.
+        raw_root = pyodbc.connect(_build_connection_string("master"), autocommit=True)
         try:
-            root.execute(f"CREATE DATABASE [{candidate.replace(']', ']]')}]")
-            root.commit()
+            raw_root.execute(f"CREATE DATABASE [{candidate.replace(']', ']]')}]")
         finally:
-            root.close()
+            raw_root.close()
 
         company_db = get_connection(candidate)
         try:
