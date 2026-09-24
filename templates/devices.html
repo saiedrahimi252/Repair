@@ -45,21 +45,6 @@
           </div>
           {% endfor %}
 
-          <div class="section-title">۳) محصولات مورد استفاده</div>
-          {% for ph in product_headers %}
-          <div class="mb-2">
-            <label class="form-label">{{ ph }}</label>
-            {% if ph == 'توضیحات' %}
-              <textarea class="form-control" name="product__{{ ph }}">{{ usage.get(ph,'') }}</textarea>
-            {% else %}
-              <select class="form-select" name="product__{{ ph }}">
-                <option value="">-</option>
-                <option value="l" {% if usage.get(ph)=='l' %}selected{% endif %}>✓</option>
-              </select>
-            {% endif %}
-          </div>
-          {% endfor %}
-
           <button type="submit" class="btn btn-primary w-100">ذخیره دستگاه و شناسنامه</button>
           {% if edit %}<a href="{{ url_for('devices') }}" class="btn btn-secondary w-100 mt-2">ثبت دستگاه جدید</a>{% endif %}
         </form>
