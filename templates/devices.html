@@ -1,45 +1,73 @@
 {% extends "base.html" %}
-{% block title %}ثبت دستگاه جدید{% endblock %}
+{% block title %}ثبت دستگاه و شناسنامه ماشین‌آلات{% endblock %}
 {% block content %}
+<style>
+.device-form .form-control,.device-form .form-select{font-size:13px}
+.device-form textarea{min-height:75px}
+.section-title{background:#f1f5f9;border-radius:8px;padding:10px;margin:18px 0 12px;font-weight:700}
+</style>
 <div class="row">
-  <div class="col-md-4">
-    <div class="card">
-      <div class="card-header">ثبت / ویرایش دستگاه</div>
+  <div class="col-lg-5">
+    <div class="card device-form">
+      <div class="card-header">ثبت / ویرایش دستگاه و شناسنامه ماشین‌آلات</div>
       <div class="card-body">
         <form method="post">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          {% if edit %}<input type="hidden" name="original_cod" value="{{ edit.cod }}">{% endif %}
+
+          <div class="section-title">۱) اطلاعات اصلی دستگاه</div>
           <div class="mb-2">
             <label class="form-label required">کد دستگاه</label>
-            <input type="text" name="cod" class="form-control" required value="{{ edit.cod if edit else '' }}">
+            <input type="text" name="cod" class="form-control" required value="{{ edit.cod if edit else '' }}" {% if edit %}readonly{% endif %}>
           </div>
           <div class="mb-2">
             <label class="form-label required">نام دستگاه</label>
             <input type="text" name="name" class="form-control" required value="{{ edit.name if edit else '' }}">
           </div>
+          <div class="row">
+            <div class="col-md-6 mb-2"><label class="form-label">هدف تعداد خرابی</label><input type="number" step="any" name="hadaftedadkharabi" class="form-control" value="{{ edit.hadaftedadkharabi if edit else '' }}"></div>
+            <div class="col-md-6 mb-2"><label class="form-label">تعداد خرابی پذیرفته شده</label><input type="number" step="any" name="pazireshtedadkharabi" class="form-control" value="{{ edit.pazireshtedadkharabi if edit else '' }}"></div>
+            <div class="col-md-6 mb-2"><label class="form-label">هدف زمان توقف</label><input type="number" step="any" name="hadafzamantavaghof" class="form-control" value="{{ edit.hadafzamantavaghof if edit else '' }}"></div>
+            <div class="col-md-6 mb-2"><label class="form-label">زمان توقف پذیرفته شده</label><input type="number" step="any" name="pazireshzamantavaghof" class="form-control" value="{{ edit.pazireshzamantavaghof if edit else '' }}"></div>
+          </div>
+
+          <div class="section-title">۲) شناسنامه فنی ماشین‌آلات</div>
+          {% set fields=[
+          ('manufacturer_country','کشور سازنده'),('manufacturer_company','شرکت سازنده'),('useful_life','عمر مفید'),('manufacture_date','تاریخ ساخت'),('serial_number','سریال دستگاه'),('commissioning_date','تاریخ راه‌اندازی'),('purchase_condition','وضعیت هنگام خرید'),('technical_info','کاتالوگ و اطلاعات فنی'),('energy_consumption','انرژی مصرفی'),('other_energy','سایر انرژی'),('cooling_system','سیستم خنک‌کننده'),('dimensions_length','طول (cm)'),('dimensions_width','عرض (cm)'),('dimensions_height','ارتفاع (cm)'),('accessories','تجهیزات جانبی'),('operation_description','شرح عملیات'),('notes','توضیحات')] %}
+          {% for f,label in fields %}
           <div class="mb-2">
-            <label class="form-label">هدف تعداد خرابی</label>
-            <input type="number" step="any" name="hadaftedadkharabi" class="form-control" value="{{ edit.hadaftedadkharabi if edit else '' }}">
+            <label class="form-label">{{ label }}</label>
+            {% if f in ['technical_info','accessories','operation_description','notes'] %}
+            <textarea class="form-control" name="{{ f }}">{{ passport[f] if passport and passport[f] else '' }}</textarea>
+            {% else %}
+            <input class="form-control" name="{{ f }}" value="{{ passport[f] if passport and passport[f] else '' }}">
+            {% endif %}
           </div>
+          {% endfor %}
+
+          <div class="section-title">۳) محصولات مورد استفاده</div>
+          {% for ph in product_headers %}
           <div class="mb-2">
-            <label class="form-label">تعداد خرابی پذیرش شده</label>
-            <input type="number" step="any" name="pazireshtedadkharabi" class="form-control" value="{{ edit.pazireshtedadkharabi if edit else '' }}">
+            <label class="form-label">{{ ph }}</label>
+            {% if ph == 'توضیحات' %}
+              <textarea class="form-control" name="product__{{ ph }}">{{ usage.get(ph,'') }}</textarea>
+            {% else %}
+              <select class="form-select" name="product__{{ ph }}">
+                <option value="">-</option>
+                <option value="l" {% if usage.get(ph)=='l' %}selected{% endif %}>✓</option>
+              </select>
+            {% endif %}
           </div>
-          <div class="mb-2">
-            <label class="form-label">هدف زمان توقف</label>
-            <input type="number" step="any" name="hadafzamantavaghof" class="form-control" value="{{ edit.hadafzamantavaghof if edit else '' }}">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">زمان توقف پذیرش شده</label>
-            <input type="number" step="any" name="pazireshzamantavaghof" class="form-control" value="{{ edit.pazireshzamantavaghof if edit else '' }}">
-          </div>
-          <button type="submit" class="btn btn-primary w-100">ثبت</button>
-          {% if edit %}<a href="{{ url_for('devices') }}" class="btn btn-secondary w-100 mt-2">انصراف</a>{% endif %}
+          {% endfor %}
+
+          <button type="submit" class="btn btn-primary w-100">ذخیره دستگاه و شناسنامه</button>
+          {% if edit %}<a href="{{ url_for('devices') }}" class="btn btn-secondary w-100 mt-2">ثبت دستگاه جدید</a>{% endif %}
         </form>
       </div>
     </div>
   </div>
 
-  <div class="col-md-8">
+  <div class="col-lg-7">
     <div class="card">
       <div class="card-header">دستگاه‌های ثبت شده</div>
       <div class="card-body table-responsive">
@@ -57,7 +85,7 @@
               <td class="text-nowrap">
                 <a href="{{ url_for('devices', edit=d.cod) }}" class="btn btn-sm btn-outline-primary">ویرایش</a>
                 <form method="post" action="{{ url_for('device_delete', cod=d.cod) }}" class="d-inline" onsubmit="return confirm('حذف شود؟');">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button type="submit" class="btn btn-sm btn-outline-danger">حذف</button>
                 </form>
               </td>
