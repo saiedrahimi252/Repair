@@ -265,6 +265,36 @@ def company_limit(company_id, kind):
     return row, count, maximum
 
 
+def record_master_access(master_user_id, company_id, company_name, ip_address):
+    """ثبت ورود مدیر اصلی به پنل یک شرکت برای ممیزی."""
+    ensure_master_database()
+    db = master_connection_to("repair_master")
+    try:
+        db.execute("""
+            IF OBJECT_ID('dbo.master_access_log','U') IS NULL
+            BEGIN
+                CREATE TABLE master_access_log (
+                    id INT IDENTITY(1,1) PRIMARY KEY,
+                    master_user_id INT,
+                    company_id INT,
+                    company_name NVARCHAR(255),
+                    access_time NVARCHAR(40) NOT NULL,
+                    ip_address NVARCHAR(100)
+                )
+            END
+        """)
+        db.execute(
+            """INSERT INTO master_access_log
+               (master_user_id, company_id, company_name, access_time, ip_address)
+               VALUES (?,?,?,?,?)""",
+            (master_user_id, company_id, company_name,
+             datetime.datetime.now().isoformat(timespec="seconds"), ip_address),
+        )
+        db.commit()
+    finally:
+        db.close()
+
+
 def company_allowed(company_id):
     row = get_company(company_id)
     if not row or not row["is_active"]:
