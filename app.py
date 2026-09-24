@@ -1330,13 +1330,12 @@ def devices():
         # محصولات مورد استفاده کاملاً قابل تنظیم هستند؛ هر شرکت/کاربر می‌تواند
         # هر تعداد محصول با هر نامی که لازم دارد اضافه کند.
         product_names = request.form.getlist("product_name[]")
-        product_used = request.form.getlist("product_used[]")
         flags = {}
         for idx, product_name in enumerate(product_names):
             product_name = (product_name or "").strip()
             if not product_name:
                 continue
-            used = "1" if idx < len(product_used) and str(product_used[idx]) == str(idx) else "0"
+            used = "1" if request.form.get(f"product_used_{idx}") else "0"
             flags[product_name] = used
         db.execute(
             """INSERT INTO machine_product_usage(device_cod,product_flags,updated_at)
