@@ -142,7 +142,7 @@
 <body>
 <nav class="navbar app-navbar navbar-expand-lg navbar-dark">
   <div class="container-fluid">
-    <a class="navbar-brand" href="{{ url_for('index') }}"><i class="bi bi-tools"></i> شرکت قطعه سازان ايتوک</a>
+    <a class="navbar-brand" href="{{ url_for('index') }}"><i class="bi bi-tools"></i> {{ session.get('company_name', 'سیستم مدیریت تعمیرات') }}</a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
       <span class="navbar-toggler-icon"></span>
     </button>
