@@ -2,85 +2,142 @@
 {% block title %}ویرایش درخواست {{ row.shomare_darkhast }}{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
-  <div class="col-md-10">
+  <div class="col-md-8">
     <div class="card">
       <div class="card-header d-flex justify-content-between">
-        <span>ویرایش درخواست خرابی شماره {{ row.shomare_darkhast }}</span>
-        {% if row.status == 'completed' %}<span class="badge bg-success align-self-center">تکمیل شده</span>
-        {% else %}<span class="badge bg-warning text-dark align-self-center">در انتظار</span>{% endif %}
+        <span>ویرایش درخواست خرابی / تعمیر</span>
+        <span class="text-muted">شماره درخواست: {{ row.shomare_darkhast }}</span>
       </div>
       <div class="card-body">
         <form method="post">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="row g-3">
-            <div class="col-md-3"><label class="form-label">شماره درخواست</label><input class="form-control" value="{{ row.shomare_darkhast }}" readonly></div>
-            <div class="col-md-3"><label class="form-label required">تاریخ درخواست</label><input type="text" name="tarikhdarkhast" class="form-control jalali-date" required value="{{ row.tarikhdarkhast or '' }}"></div>
-            <div class="col-md-3"><label class="form-label required">ساعت درخواست</label><input type="text" name="timedarkhast" class="form-control" required value="{{ row.timedarkhast or '' }}"></div>
-            <div class="col-md-3"><label class="form-label">وضعیت</label><select name="status" class="form-select"><option value="pending" {{ 'selected' if row.status != 'completed' }}>در انتظار</option><option value="completed" {{ 'selected' if row.status == 'completed' }}>تکمیل شده</option></select></div>
-            <div class="col-md-4"><label class="form-label">نام درخواست کننده</label><input type="text" name="darkhastkonande" class="form-control" value="{{ row.darkhastkonande or '' }}"></div>
-            <div class="col-md-4 position-relative"><label class="form-label required">کد دستگاه</label><input type="text" name="codedastgah" id="codedastgah" class="form-control" required value="{{ row.codedastgah or '' }}" autocomplete="off"><div id="codedastgah_suggestions" class="list-group position-absolute w-100" style="z-index:1000; display:none;"></div></div>
-            <div class="col-md-4 position-relative"><label class="form-label required">نام دستگاه</label><input type="text" name="namdastgah" id="namdastgah" class="form-control" required value="{{ row.namdastgah or '' }}" autocomplete="off"><div id="namdastgah_suggestions" class="list-group position-absolute w-100" style="z-index:1000; display:none;"></div></div>
-            <div class="col-12"><label class="form-label required">نوع کار درخواستی</label><br>{% for key, label in work_types %}<div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="wt_{{ key }}" id="wt_{{ key }}" {{ 'checked' if row[key] }}><label class="form-check-label" for="wt_{{ key }}">{{ label }}</label></div>{% endfor %}</div>
-            <div class="col-12"><label class="form-label required">شرح خرابی / نقص</label><textarea name="sharhenaghs" class="form-control" rows="3" required>{{ row.sharhenaghs or '' }}</textarea></div>
+            <div class="col-md-4">
+              <label class="form-label required">تاریخ درخواست</label>
+              <input type="text" name="tarikhdarkhast" class="form-control jalali-date" required value="{{ row.tarikhdarkhast or '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label required">ساعت درخواست</label>
+              <input type="text" name="timedarkhast" class="form-control" required value="{{ row.timedarkhast or '' }}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">نام درخواست کننده</label>
+              <input type="text" name="darkhastkonande" class="form-control" value="{{ row.darkhastkonande or '' }}">
+            </div>
+
+            <div class="col-md-6 position-relative">
+              <label class="form-label required">کد دستگاه</label>
+              <input type="text" name="codedastgah" id="codedastgah" class="form-control" required autocomplete="off" value="{{ row.codedastgah or '' }}">
+              <div id="codedastgah_suggestions" class="list-group position-absolute w-100" style="z-index:1000; display:none;"></div>
+            </div>
+            <div class="col-md-6 position-relative">
+              <label class="form-label required">نام دستگاه</label>
+              <input type="text" name="namdastgah" id="namdastgah" class="form-control" required autocomplete="off" value="{{ row.namdastgah or '' }}">
+              <div id="namdastgah_suggestions" class="list-group position-absolute w-100" style="z-index:1000; display:none;"></div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label required">نوع کار درخواستی</label><br>
+              {% for key, label in work_types %}
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="wt_{{ key }}" id="wt_{{ key }}" {{ 'checked' if row[key] }}>
+                <label class="form-check-label" for="wt_{{ key }}">{{ label }}</label>
+              </div>
+              {% endfor %}
+            </div>
+
+            <div class="col-12">
+              <label class="form-label required">وضعیت فعلی دستگاه</label><br>
+              {% for key, label in device_operational_status_options %}
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="radio" name="device_operational_status"
+                       id="device_status_{{ key }}" value="{{ key }}"
+                       {{ 'checked' if row.device_operational_status == key }} required>
+                <label class="form-check-label" for="device_status_{{ key }}">{{ label }}</label>
+              </div>
+              {% endfor %}
+            </div>
+
+            <div class="col-12">
+              <label class="form-label required">شرح خرابی / نقص</label>
+              <textarea name="sharhenaghs" class="form-control" rows="3" required>{{ row.sharhenaghs or '' }}</textarea>
+            </div>
           </div>
 
-          <hr class="my-4"><h6>اطلاعات انجام کار</h6>
-          <div class="row g-3">
-            <div class="col-12"><label class="form-label">شرح کار انجام شده</label><textarea name="sharhekareanjamshode" class="form-control" rows="3">{{ row.sharhekareanjamshode or '' }}</textarea></div>
-            <div class="col-12"><label class="form-label">واحد مرتبط با کار انجام شده</label><br>{% for key, label in work_units %}<div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="dep_{{ key }}" id="dep_{{ key }}" {{ 'checked' if row[key] }}><label class="form-check-label" for="dep_{{ key }}">{{ label }}</label></div>{% endfor %}</div>
-            <div class="col-12"><label class="form-label">علل تاخیر در عملیات تعمیرات</label><br>{% for key, label in delay_causes %}<div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="dep_{{ key }}" id="dep_{{ key }}" {{ 'checked' if row[key] }}><label class="form-check-label" for="dep_{{ key }}">{{ label }}</label></div>{% endfor %}</div>
-            <div class="col-md-3"><label class="form-label">تاریخ شروع</label><input type="text" name="tarikhstart" class="form-control jalali-date" value="{{ row.tarikhstart or '' }}"></div>
-            <div class="col-md-3"><label class="form-label">ساعت شروع</label><input type="text" name="timestart" class="form-control" value="{{ row.timestart or '' }}"></div>
-            <div class="col-md-3"><label class="form-label">تاریخ اتمام</label><input type="text" name="tarikhend" class="form-control jalali-date" value="{{ row.tarikhend or '' }}"></div>
-            <div class="col-md-3"><label class="form-label">ساعت اتمام</label><input type="text" name="timeEnd" class="form-control" value="{{ row.timeEnd or '' }}"></div>
-            <div class="col-md-4"><label class="form-label">میزان ساعت توقف دستگاه</label><input type="text" name="timetavaghofdastgah" class="form-control" value="{{ row.timetavaghofdastgah or '' }}"></div>
-            <div class="col-12"><label class="form-label">توضیحات</label><textarea name="tozihat" class="form-control" rows="3">{{ row.tozihat or '' }}</textarea></div>
-          </div>
-
-          <hr class="my-4"><h6>مجری‌های انجام کار</h6>
-          <div class="row g-2 align-items-end mb-3">
-            <div class="col-md-4"><label class="form-label">مجری</label><select id="contractorSelect" class="form-select"><option value="">-- انتخاب کنید --</option>{% for c in contractors %}<option value="{{ c.cod }}" data-name="{{ c.name }}">{{ c.name }} ({{ c.cod }})</option>{% endfor %}</select></div>
-            <div class="col-md-3"><label class="form-label">تاریخ</label><input type="text" id="contractorDate" class="form-control jalali-date" value="{{ today }}"></div>
-            <div class="col-md-2"><label class="form-label">نفر ساعت</label><input type="text" id="contractorHours" class="form-control"></div>
-            <div class="col-md-3"><button type="button" class="btn btn-outline-primary w-100" onclick="addContractorRow()">افزودن به لیست</button></div>
-          </div>
-          <table class="table table-bordered" id="contractorTable"><thead><tr><th>کد مجری</th><th>نام مجری</th><th>تاریخ</th><th>نفر ساعت</th><th></th></tr></thead><tbody>
-          {% for m in existing_mojry %}<tr><td><input type="hidden" name="contractor_cod[]" value="{{ m.kod_mojri }}">{{ m.kod_mojri }}</td><td><input type="hidden" name="contractor_name[]" value="{{ m.nam_mojri }}">{{ m.nam_mojri }}</td><td><input type="hidden" name="contractor_date[]" value="{{ m.tarikh }}">{{ m.tarikh }}</td><td><input type="hidden" name="contractor_hours[]" value="{{ m.saat }}">{{ m.saat }}</td><td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()">حذف</button></td></tr>{% endfor %}
-          </tbody></table>
-
-          <hr class="my-4"><h6>مواد و قطعات مصرفی</h6>
-          <div class="row g-2 align-items-end mb-3">
-            <div class="col-md-5"><label class="form-label">کالا</label><select id="materialSelect" class="form-select"><option value="">-- انتخاب کنید --</option>{% for g in goods_list %}<option value="{{ g.cod }}" data-name="{{ g.name }}" data-vahed="{{ g.vahed or '' }}">{{ g.name }} ({{ g.cod }})</option>{% endfor %}</select></div>
-            <div class="col-md-2"><label class="form-label">مقدار</label><input type="text" id="materialQty" class="form-control"></div>
-            <div class="col-md-2"><label class="form-label">واحد</label><input type="text" id="materialVahed" class="form-control" readonly></div>
-            <div class="col-md-3"><button type="button" class="btn btn-outline-primary w-100" onclick="addMaterialRow()">افزودن به لیست</button></div>
-          </div>
-          <table class="table table-bordered" id="materialTable"><thead><tr><th>کد</th><th>نام کالا</th><th>مقدار</th><th>واحد</th><th></th></tr></thead><tbody>
-          {% for m in existing_materials %}<tr><td><input type="hidden" name="material_cod[]" value="{{ m.code }}">{{ m.code }}</td><td><input type="hidden" name="material_name[]" value="{{ m.name }}">{{ m.name }}</td><td><input type="hidden" name="material_qty[]" value="{{ m.qty }}">{{ m.qty }}</td><td><input type="hidden" name="material_vahed[]" value="{{ m.vahed }}">{{ m.vahed }}</td><td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()">حذف</button></td></tr>{% endfor %}
-          </tbody></table>
-
-          <div class="d-flex gap-2 mt-4">
-            <button type="submit" class="btn btn-primary flex-grow-1">ذخیره تمام اصلاحات</button>
-            <a href="{{ url_for('requests_search') }}" class="btn btn-secondary">انصراف</a>
-          </div>
-        </form>
-
-        <hr class="my-4">
-        <form method="post" action="{{ url_for('request_delete', request_id=row.id) }}" onsubmit="return confirm('این درخواست به همراه مجری‌ها و مواد مصرفی ثبت‌شده برایش کاملاً حذف می‌شود. مطمئن هستید؟');">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <input type="hidden" name="next" value="{{ url_for('requests_search') }}">
-          <button type="submit" class="btn btn-outline-danger w-100">حذف کامل این درخواست</button>
+          <button type="submit" class="btn btn-primary mt-4 w-100">ذخیره اصلاحات</button>
+          <a href="{{ url_for('requests_pending') if row.status != 'completed' else url_for('request_detail', request_id=row.id) }}"
+             class="btn btn-secondary mt-2 w-100">انصراف</a>
         </form>
       </div>
+    </div>
+
+    <div class="card mt-3" id="deviceHistoryCard" style="display: none;">
+      <div class="card-header">تعمیرات قبلی این دستگاه</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-striped table-bordered mb-0">
+            <thead><tr>
+              <th>کد دستگاه</th><th>نام دستگاه</th><th>تاریخ تعمیر</th><th>شرح خرابی</th><th>کار انجام شده</th>
+            </tr></thead>
+            <tbody id="deviceHistoryBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div id="deviceHistoryEmpty" class="text-muted mt-3" style="display: none;">
+      تعمیر قبلی‌ای برای این دستگاه ثبت نشده است.
     </div>
   </div>
 </div>
 {% endblock %}
+
 {% block extra_scripts %}
 <script>
-attachDeviceAutocomplete('codedastgah', 'namdastgah');
-document.getElementById('materialSelect').addEventListener('change', function(){var o=this.options[this.selectedIndex];document.getElementById('materialVahed').value=o.dataset.vahed||'';});
-function addContractorRow(){var s=document.getElementById('contractorSelect'),o=s.options[s.selectedIndex];var d=document.getElementById('contractorDate').value,h=document.getElementById('contractorHours').value;if(!s.value||!d||!h)return;var tr=document.createElement('tr');tr.innerHTML='<td><input type="hidden" name="contractor_cod[]" value="'+s.value+'">'+s.value+'</td><td><input type="hidden" name="contractor_name[]" value="'+o.dataset.name+'">'+o.dataset.name+'</td><td><input type="hidden" name="contractor_date[]" value="'+d+'">'+d+'</td><td><input type="hidden" name="contractor_hours[]" value="'+h+'">'+h+'</td><td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">حذف</button></td>';document.querySelector('#contractorTable tbody').appendChild(tr);}
-function addMaterialRow(){var s=document.getElementById('materialSelect'),o=s.options[s.selectedIndex],q=document.getElementById('materialQty').value,v=document.getElementById('materialVahed').value;if(!s.value||!q)return;var tr=document.createElement('tr');tr.innerHTML='<td><input type="hidden" name="material_cod[]" value="'+s.value+'">'+s.value+'</td><td><input type="hidden" name="material_name[]" value="'+o.dataset.name+'">'+o.dataset.name+'</td><td><input type="hidden" name="material_qty[]" value="'+q+'">'+q+'</td><td><input type="hidden" name="material_vahed[]" value="'+v+'">'+v+'</td><td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest(\'tr\').remove()">حذف</button></td>';document.querySelector('#materialTable tbody').appendChild(tr);}
+attachDeviceAutocomplete('codedastgah', 'namdastgah', function (cod) {
+  loadDeviceHistory(cod);
+});
+
+var deviceHistoryTimer = null;
+document.getElementById('codedastgah').addEventListener('input', function () {
+  var value = this.value;
+  clearTimeout(deviceHistoryTimer);
+  deviceHistoryTimer = setTimeout(function () { loadDeviceHistory(value); }, 400);
+});
+
+function loadDeviceHistory(cod) {
+  var card = document.getElementById('deviceHistoryCard');
+  var empty = document.getElementById('deviceHistoryEmpty');
+  var body = document.getElementById('deviceHistoryBody');
+  cod = (cod || '').trim();
+  if (!cod) {
+    card.style.display = 'none';
+    empty.style.display = 'none';
+    return;
+  }
+  fetch('{{ url_for("api_device_history") }}?cod=' + encodeURIComponent(cod))
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var rows = data.rows || [];
+      body.innerHTML = '';
+      if (rows.length === 0) {
+        card.style.display = 'none';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      card.style.display = 'block';
+      rows.forEach(function (r) {
+        var tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td>' + (r.codedastgah || '') + '</td>' +
+          '<td>' + (r.namdastgah || '') + '</td>' +
+          '<td>' + (r.tarikhdarkhast || '') + '</td>' +
+          '<td>' + (r.sharhenaghs || '') + '</td>' +
+          '<td>' + (r.sharhekareanjamshode || '-') + '</td>';
+        body.appendChild(tr);
+      });
+    })
+    .catch(function () { card.style.display = 'none'; empty.style.display = 'none'; });
+}
 </script>
 {% endblock %}
