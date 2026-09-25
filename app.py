@@ -1687,7 +1687,7 @@ def request_edit(request_id):
 
 @app.route("/requests/<int:request_id>/delete", methods=["POST"])
 @login_required
-@roles_required(*(CAN_CREATE_REQUEST | CAN_REVIEW_REQUEST))
+@roles_required(*ADMIN_ONLY)
 def request_delete(request_id):
     """حذف کامل یک درخواست به همراه مجری‌ها و مواد مصرفی مرتبط با آن."""
     db = get_db()
