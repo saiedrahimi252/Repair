@@ -709,6 +709,15 @@ _TABLES = {
         [approved_at] DATETIME2 NULL,
         [notes] NVARCHAR(MAX)
     """,
+    "production_stop_types": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [code] NVARCHAR(50) NOT NULL UNIQUE,
+        [name] NVARCHAR(200) NOT NULL,
+        [category] NVARCHAR(50) NULL,
+        [counts_as_unavailability] BIT NOT NULL DEFAULT 1,
+        [is_active] BIT NOT NULL DEFAULT 1,
+        [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    """,
     "production_entries": """
         [id] INT IDENTITY(1,1) PRIMARY KEY,
         [plan_item_id] INT NOT NULL,
@@ -725,6 +734,28 @@ _TABLES = {
         CONSTRAINT FK_prod_entry_shift FOREIGN KEY ([shift_id]) REFERENCES production_shifts([id]),
         CONSTRAINT FK_prod_entry_employee FOREIGN KEY ([employee_id]) REFERENCES production_employees([id]),
         CONSTRAINT FK_prod_entry_machine FOREIGN KEY ([machine_id]) REFERENCES production_machines([id])
+    """,
+    "production_stops": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [plan_item_id] INT NULL,
+        [production_date] DATE NOT NULL,
+        [shift_id] INT NOT NULL,
+        [employee_id] INT NULL,
+        [machine_id] INT NULL,
+        [stop_type_id] INT NOT NULL,
+        [start_at] DATETIME2 NOT NULL,
+        [end_at] DATETIME2 NOT NULL,
+        [duration_minutes] FLOAT NOT NULL,
+        [notes] NVARCHAR(MAX),
+        [created_by] INT NULL,
+        [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT CK_prod_stop_time CHECK ([end_at] > [start_at]),
+        CONSTRAINT CK_prod_stop_duration CHECK ([duration_minutes] > 0),
+        CONSTRAINT FK_prod_stop_plan_item FOREIGN KEY ([plan_item_id]) REFERENCES production_plan_items([id]),
+        CONSTRAINT FK_prod_stop_shift FOREIGN KEY ([shift_id]) REFERENCES production_shifts([id]),
+        CONSTRAINT FK_prod_stop_employee FOREIGN KEY ([employee_id]) REFERENCES production_employees([id]),
+        CONSTRAINT FK_prod_stop_machine FOREIGN KEY ([machine_id]) REFERENCES production_machines([id]),
+        CONSTRAINT FK_prod_stop_type FOREIGN KEY ([stop_type_id]) REFERENCES production_stop_types([id])
     """,
     "production_plan_items": """
         [id] INT IDENTITY(1,1) PRIMARY KEY,
@@ -750,7 +781,7 @@ _TABLE_ORDER = [
     "machine_passport", "machine_product_usage", "machine_passport_meta",
     "production_products", "production_suppliers", "production_raw_materials", "production_stations",
     "production_machines", "production_station_products", "production_employees", "production_shifts",
-    "production_plans", "production_plan_items", "production_entries",
+    "production_plans", "production_plan_items", "production_stop_types", "production_entries", "production_stops",
 ]
 
 
