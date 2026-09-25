@@ -622,6 +622,106 @@ _TABLES = {
         [updated_at] NVARCHAR(MAX)
     """,
     "machine_passport_meta": "[key] NVARCHAR(255) NOT NULL PRIMARY KEY, [value] NVARCHAR(MAX)",
+
+    # ============================================================ Production phase 1
+    # جداول پایه ماژول تولید. این جداول مستقل از CMMS هستند؛
+    # اتصال production_machines به dastgahjadid فعلاً منطقی/کنترلی است.
+    "production_products": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [code] NVARCHAR(100) NOT NULL UNIQUE,
+        [name] NVARCHAR(255) NOT NULL,
+        [unit] NVARCHAR(50),
+        [is_active] BIT NOT NULL DEFAULT 1,
+        [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    """,
+    "production_suppliers": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [code] NVARCHAR(100) NOT NULL UNIQUE,
+        [name] NVARCHAR(255) NOT NULL,
+        [is_active] BIT NOT NULL DEFAULT 1
+    """,
+    "production_raw_materials": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [code] NVARCHAR(100) NOT NULL UNIQUE,
+        [name] NVARCHAR(255) NOT NULL,
+        [unit] NVARCHAR(50),
+        [supplier_id] INT NULL,
+        [is_active] BIT NOT NULL DEFAULT 1,
+        CONSTRAINT FK_prod_raw_supplier FOREIGN KEY ([supplier_id]) REFERENCES production_suppliers([id])
+    """,
+    "production_stations": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [code] NVARCHAR(100) NOT NULL UNIQUE,
+        [name] NVARCHAR(255) NOT NULL,
+        [stage_name] NVARCHAR(255),
+        [standard_qty_8h] FLOAT,
+        [standard_qty_1h] FLOAT,
+        [cycle_time_seconds] FLOAT,
+        [time_weight] FLOAT,
+        [previous_station_id] INT NULL,
+        [is_active] BIT NOT NULL DEFAULT 1,
+        CONSTRAINT FK_prod_station_previous FOREIGN KEY ([previous_station_id]) REFERENCES production_stations([id])
+    """,
+    "production_machines": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [code] NVARCHAR(100) NOT NULL UNIQUE,
+        [name] NVARCHAR(255) NOT NULL,
+        [cmms_device_code] NVARCHAR(255) NULL,
+        [station_id] INT NOT NULL,
+        [is_active] BIT NOT NULL DEFAULT 1,
+        CONSTRAINT FK_prod_machine_station FOREIGN KEY ([station_id]) REFERENCES production_stations([id])
+    """,
+    "production_station_products": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [station_id] INT NOT NULL,
+        [product_id] INT NOT NULL,
+        [standard_cycle_time_seconds] FLOAT NULL,
+        [standard_qty_1h] FLOAT NULL,
+        [allowed_waste_percent] FLOAT NULL,
+        [is_active] BIT NOT NULL DEFAULT 1,
+        CONSTRAINT UQ_prod_station_product UNIQUE ([station_id], [product_id]),
+        CONSTRAINT FK_prod_sp_station FOREIGN KEY ([station_id]) REFERENCES production_stations([id]),
+        CONSTRAINT FK_prod_sp_product FOREIGN KEY ([product_id]) REFERENCES production_products([id])
+    """,
+    "production_employees": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [personnel_code] NVARCHAR(100) NOT NULL UNIQUE,
+        [full_name] NVARCHAR(255) NOT NULL,
+        [is_active] BIT NOT NULL DEFAULT 1,
+        [user_id] INT NULL
+    """,
+    "production_shifts": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [code] NVARCHAR(50) NOT NULL UNIQUE,
+        [name] NVARCHAR(100) NOT NULL,
+        [start_time] TIME NOT NULL,
+        [end_time] TIME NOT NULL,
+        [crosses_midnight] BIT NOT NULL DEFAULT 0,
+        [is_active] BIT NOT NULL DEFAULT 1
+    """,
+    "production_plans": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [plan_date] DATE NOT NULL,
+        [status] NVARCHAR(20) NOT NULL DEFAULT 'draft',
+        [created_by] INT NULL,
+        [approved_by] INT NULL,
+        [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        [approved_at] DATETIME2 NULL,
+        [notes] NVARCHAR(MAX)
+    """,
+    "production_plan_items": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [plan_id] INT NOT NULL,
+        [product_id] INT NOT NULL,
+        [station_id] INT NULL,
+        [target_qty] FLOAT NOT NULL,
+        [management_target_qty] FLOAT NULL,
+        [work_day] DATE NOT NULL,
+        [notes] NVARCHAR(MAX),
+        CONSTRAINT FK_prod_plan_item_plan FOREIGN KEY ([plan_id]) REFERENCES production_plans([id]),
+        CONSTRAINT FK_prod_plan_item_product FOREIGN KEY ([product_id]) REFERENCES production_products([id]),
+        CONSTRAINT FK_prod_plan_item_station FOREIGN KEY ([station_id]) REFERENCES production_stations([id])
+    """,
 }
 
 # ترتیب مهم است: جدول‌های مرجع قبل از جدول‌هایی که (منطقاً) به آن‌ها
@@ -631,6 +731,9 @@ _TABLE_ORDER = [
     "users", "audit_log", "bazdid_rozane", "bazdid_pishgirane",
     "key_equipment", "key_equipment_meta", "monthly_repair_cost",
     "machine_passport", "machine_product_usage", "machine_passport_meta",
+    "production_products", "production_suppliers", "production_raw_materials", "production_stations",
+    "production_machines", "production_station_products", "production_employees", "production_shifts",
+    "production_plans", "production_plan_items",
 ]
 
 
