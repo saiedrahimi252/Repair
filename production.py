@@ -546,6 +546,165 @@ def stop_types():
         db.close()
 
 
+
+@production_bp.route("/stops", methods=["GET", "POST"])
+@roles_required("admin")
+def production_stops():
+    db = _db()
+    try:
+        if request.method == "POST":
+            plan_item_id_raw = request.form.get("plan_item_id", "").strip()
+            shift_id_raw = request.form.get("shift_id", "").strip()
+            stop_type_id_raw = request.form.get("stop_type_id", "").strip()
+            employee_id_raw = request.form.get("employee_id", "").strip()
+            machine_id_raw = request.form.get("machine_id", "").strip()
+            production_date = request.form.get("production_date", "").strip()
+            start_at_raw = request.form.get("start_at", "").strip()
+            end_at_raw = request.form.get("end_at", "").strip()
+            notes = request.form.get("notes", "").strip() or None
+
+            if not shift_id_raw or not stop_type_id_raw or not production_date or not start_at_raw or not end_at_raw:
+                flash("شیفت، نوع توقف، تاریخ، زمان شروع و زمان پایان الزامی است.", "error")
+                return redirect(url_for("production.production_stops"))
+
+            try:
+                from datetime import datetime
+
+                plan_item_id = int(plan_item_id_raw) if plan_item_id_raw else None
+                shift_id = int(shift_id_raw)
+                stop_type_id = int(stop_type_id_raw)
+                employee_id = int(employee_id_raw) if employee_id_raw else None
+                machine_id = int(machine_id_raw) if machine_id_raw else None
+
+                start_at = datetime.fromisoformat(start_at_raw)
+                end_at = datetime.fromisoformat(end_at_raw)
+                if end_at <= start_at:
+                    raise ValueError("زمان پایان توقف باید بعد از زمان شروع باشد.")
+
+                duration_minutes = (end_at - start_at).total_seconds() / 60.0
+                if not math.isfinite(duration_minutes) or duration_minutes <= 0:
+                    raise ValueError("مدت توقف معتبر نیست.")
+
+                shift = db.execute(
+                    "SELECT id FROM production_shifts WHERE id = ? AND is_active = 1",
+                    (shift_id,),
+                ).fetchone()
+                if shift is None:
+                    raise ValueError("شیفت انتخاب‌شده معتبر نیست.")
+
+                stop_type = db.execute(
+                    "SELECT id FROM production_stop_types WHERE id = ? AND is_active = 1",
+                    (stop_type_id,),
+                ).fetchone()
+                if stop_type is None:
+                    raise ValueError("نوع توقف انتخاب‌شده معتبر نیست.")
+
+                if plan_item_id is not None:
+                    item = db.execute(
+                        """SELECT i.id, i.station_id, p.status AS plan_status
+                           FROM production_plan_items i
+                           JOIN production_plans p ON p.id = i.plan_id
+                           WHERE i.id = ?""",
+                        (plan_item_id,),
+                    ).fetchone()
+                    if item is None:
+                        raise ValueError("آیتم برنامه پیدا نشد.")
+                    if item["plan_status"] != "approved":
+                        raise ValueError("ثبت توقف برای آیتم برنامه فقط پس از تأیید برنامه مجاز است.")
+                else:
+                    item = None
+
+                if employee_id is not None:
+                    employee = db.execute(
+                        "SELECT id FROM production_employees WHERE id = ? AND is_active = 1",
+                        (employee_id,),
+                    ).fetchone()
+                    if employee is None:
+                        raise ValueError("پرسنل انتخاب‌شده معتبر نیست.")
+
+                if machine_id is not None:
+                    machine = db.execute(
+                        "SELECT id, station_id FROM production_machines WHERE id = ? AND is_active = 1",
+                        (machine_id,),
+                    ).fetchone()
+                    if machine is None:
+                        raise ValueError("ماشین انتخاب‌شده معتبر نیست.")
+                    if item is not None and item["station_id"] is not None and machine["station_id"] != item["station_id"]:
+                        raise ValueError("ماشین انتخاب‌شده متعلق به ایستگاه این آیتم برنامه نیست.")
+
+                db.execute(
+                    """INSERT INTO production_stops
+                       (plan_item_id,production_date,shift_id,employee_id,machine_id,stop_type_id,
+                        start_at,end_at,duration_minutes,notes,created_by)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                    (plan_item_id, production_date, shift_id, employee_id, machine_id, stop_type_id,
+                     start_at, end_at, duration_minutes, notes, session.get("user_id")),
+                )
+                db.commit()
+                flash("توقف با موفقیت ثبت شد.", "success")
+            except Exception as exc:
+                db.rollback()
+                flash(f"ثبت توقف انجام نشد: {exc}", "error")
+            return redirect(url_for("production.production_stops"))
+
+        rows = db.execute(
+            """SELECT st.id, st.production_date, st.start_at, st.end_at,
+                      st.duration_minutes, st.notes,
+                      p.code AS product_code, p.name AS product_name,
+                      s.name AS station_name,
+                      sh.name AS shift_name,
+                      pe.full_name AS employee_name,
+                      m.name AS machine_name,
+                      pt.code AS stop_type_code, pt.name AS stop_type_name,
+                      pt.category AS stop_category
+               FROM production_stops st
+               LEFT JOIN production_plan_items i ON i.id = st.plan_item_id
+               LEFT JOIN production_products p ON p.id = i.product_id
+               LEFT JOIN production_stations s ON s.id = i.station_id
+               JOIN production_shifts sh ON sh.id = st.shift_id
+               LEFT JOIN production_employees pe ON pe.id = st.employee_id
+               LEFT JOIN production_machines m ON m.id = st.machine_id
+               JOIN production_stop_types pt ON pt.id = st.stop_type_id
+               ORDER BY st.production_date DESC, st.start_at DESC, st.id DESC"""
+        ).fetchall()
+
+        plan_items = db.execute(
+            """SELECT i.id, i.work_day, p.plan_date,
+                      pr.code AS product_code, pr.name AS product_name,
+                      s.name AS station_name
+               FROM production_plan_items i
+               JOIN production_plans p ON p.id = i.plan_id
+               JOIN production_products pr ON pr.id = i.product_id
+               LEFT JOIN production_stations s ON s.id = i.station_id
+               WHERE p.status = 'approved'
+               ORDER BY i.work_day DESC, i.id DESC"""
+        ).fetchall()
+        shifts_rows = db.execute(
+            "SELECT id, code, name FROM production_shifts WHERE is_active = 1 ORDER BY code"
+        ).fetchall()
+        employees_rows = db.execute(
+            "SELECT id, personnel_code, full_name FROM production_employees WHERE is_active = 1 ORDER BY full_name"
+        ).fetchall()
+        machines_rows = db.execute(
+            "SELECT id, code, name, station_id FROM production_machines WHERE is_active = 1 ORDER BY name"
+        ).fetchall()
+        stop_types_rows = db.execute(
+            "SELECT id, code, name, category FROM production_stop_types WHERE is_active = 1 ORDER BY code"
+        ).fetchall()
+
+        return render_template(
+            "production_stops.html",
+            rows=rows,
+            plan_items=plan_items,
+            shifts=shifts_rows,
+            employees=employees_rows,
+            machines=machines_rows,
+            stop_types=stop_types_rows,
+        )
+    finally:
+        db.close()
+
+
 @production_bp.route("/entries", methods=["GET", "POST"])
 @roles_required("admin")
 def production_entries():
