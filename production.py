@@ -2,6 +2,7 @@
 """ماژول تولید — فاز اول: داشبورد و Master Data پایه."""
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+import math
 from database import get_connection
 from auth import roles_required
 
@@ -438,9 +439,9 @@ def plan_detail(plan_id):
                     float(management_target_raw) if management_target_raw else None
                 )
 
-                if target_qty <= 0:
-                    raise ValueError("مقدار هدف باید بیشتر از صفر باشد.")
-                if management_target_qty is not None and management_target_qty < 0:
+                if not math.isfinite(target_qty) or target_qty <= 0:
+                    raise ValueError("مقدار هدف باید یک عدد معتبر و بیشتر از صفر باشد.")
+                if management_target_qty is not None and (not math.isfinite(management_target_qty) or management_target_qty < 0):
                     raise ValueError("هدف مدیریتی نمی‌تواند منفی باشد.")
 
                 product = db.execute(
@@ -549,12 +550,49 @@ def approve_plan(plan_id):
                WHERE id = ? AND status = 'draft'""",
             (session.get("user_id"), plan_id),
         )
+        updated = db.execute(
+            """UPDATE production_plans
+               SET status = 'approved', approved_by = ?, approved_at = SYSUTCDATETIME()
+               WHERE id = ? AND status = 'draft'""",
+            (session.get("user_id"), plan_id),
+        )
+        if updated.rowcount != 1:
+            db.rollback()
+            flash("برنامه همزمان توسط کاربر دیگری تغییر کرده است؛ دوباره بررسی کنید.", "error")
+            return redirect(url_for("production.plan_detail", plan_id=plan_id))
         db.commit()
         flash("برنامه با موفقیت تأیید شد و قفل گردید.", "success")
         return redirect(url_for("production.plan_detail", plan_id=plan_id))
     except Exception as exc:
         db.rollback()
         flash(f"تأیید برنامه انجام نشد: {exc}", "error")
+        return redirect(url_for("production.plan_detail", plan_id=plan_id))
+    finally:
+        db.close()
+
+@production_bp.route("/plans/<int:plan_id>/items/<int:item_id>/delete", methods=["POST"])
+@roles_required("admin")
+def delete_plan_item(plan_id, item_id):
+    db = _db()
+    try:
+        plan = db.execute("SELECT id, status FROM production_plans WHERE id = ?", (plan_id,)).fetchone()
+        if plan is None:
+            flash("برنامه پیدا نشد.", "error")
+            return redirect(url_for("production.plans"))
+        if plan["status"] != "draft":
+            flash("آیتم‌های برنامه تأییدشده قابل حذف نیستند.", "error")
+            return redirect(url_for("production.plan_detail", plan_id=plan_id))
+        result = db.execute("DELETE FROM production_plan_items WHERE id = ? AND plan_id = ?", (item_id, plan_id))
+        if result.rowcount != 1:
+            db.rollback()
+            flash("آیتم موردنظر پیدا نشد.", "error")
+        else:
+            db.commit()
+            flash("آیتم برنامه حذف شد.", "success")
+        return redirect(url_for("production.plan_detail", plan_id=plan_id))
+    except Exception as exc:
+        db.rollback()
+        flash(f"حذف آیتم انجام نشد: {exc}", "error")
         return redirect(url_for("production.plan_detail", plan_id=plan_id))
     finally:
         db.close()
