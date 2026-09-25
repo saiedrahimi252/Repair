@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-3" dir="rtl">
+  <h2>ایستگاه‌های تولید</h2>
+  <form method="post" class="row g-2 mb-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="col-md-2"><input class="form-control" name="code" placeholder="کد" required></div>
+    <div class="col-md-3"><input class="form-control" name="name" placeholder="نام ایستگاه" required></div>
+    <div class="col-md-2"><input class="form-control" name="stage_name" placeholder="مرحله"></div>
+    <div class="col-md-2"><input class="form-control" name="standard_qty_8h" placeholder="ظرفیت ۸ ساعت"></div>
+    <div class="col-md-2"><input class="form-control" name="standard_qty_1h" placeholder="ظرفیت ۱ ساعت"></div>
+    <div class="col-md-2"><input class="form-control" name="cycle_time_seconds" placeholder="زمان سیکل (ثانیه)"></div>
+    <div class="col-md-2"><input class="form-control" name="time_weight" placeholder="ضریب زمان"></div>
+    <div class="col-md-2"><button class="btn btn-primary">ثبت ایستگاه</button></div>
+  </form>
+  <table class="table table-striped"><thead><tr><th>کد</th><th>نام</th><th>مرحله</th><th>ظرفیت ۸ ساعت</th><th>ظرفیت ۱ ساعت</th><th>سیکل</th><th>ضریب</th></tr></thead>
+  <tbody>{% for r in rows %}<tr><td>{{ r.code }}</td><td>{{ r.name }}</td><td>{{ r.stage_name or '' }}</td><td>{{ r.standard_qty_8h or '' }}</td><td>{{ r.standard_qty_1h or '' }}</td><td>{{ r.cycle_time_seconds or '' }}</td><td>{{ r.time_weight or '' }}</td></tr>{% else %}<tr><td colspan="7">هنوز ایستگاهی ثبت نشده است.</td></tr>{% endfor %}</tbody></table>
+</div>
+{% endblock %}
