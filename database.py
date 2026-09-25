@@ -718,6 +718,36 @@ _TABLES = {
         [is_active] BIT NOT NULL DEFAULT 1,
         [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
     """,
+    "production_defect_types": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [code] NVARCHAR(50) NOT NULL UNIQUE,
+        [name] NVARCHAR(200) NOT NULL,
+        [description] NVARCHAR(500) NULL,
+        [is_active] BIT NOT NULL DEFAULT 1,
+        [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+    """,
+    "production_waste_entries": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [plan_item_id] INT NULL,
+        [production_date] DATE NOT NULL,
+        [shift_id] INT NOT NULL,
+        [employee_id] INT NULL,
+        [machine_id] INT NULL,
+        [defect_type_id] INT NULL,
+        [record_type] NVARCHAR(20) NOT NULL,
+        [classification] NVARCHAR(50) NULL,
+        [quantity] FLOAT NOT NULL,
+        [notes] NVARCHAR(MAX),
+        [created_by] INT NULL,
+        [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT CK_prod_waste_record_type CHECK ([record_type] IN ('waste','rework')),
+        CONSTRAINT CK_prod_waste_quantity_positive CHECK ([quantity] > 0),
+        CONSTRAINT FK_prod_waste_plan_item FOREIGN KEY ([plan_item_id]) REFERENCES production_plan_items([id]),
+        CONSTRAINT FK_prod_waste_shift FOREIGN KEY ([shift_id]) REFERENCES production_shifts([id]),
+        CONSTRAINT FK_prod_waste_employee FOREIGN KEY ([employee_id]) REFERENCES production_employees([id]),
+        CONSTRAINT FK_prod_waste_machine FOREIGN KEY ([machine_id]) REFERENCES production_machines([id]),
+        CONSTRAINT FK_prod_waste_defect FOREIGN KEY ([defect_type_id]) REFERENCES production_defect_types([id])
+    """,
     "production_entries": """
         [id] INT IDENTITY(1,1) PRIMARY KEY,
         [plan_item_id] INT NOT NULL,
