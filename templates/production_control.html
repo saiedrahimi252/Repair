@@ -69,6 +69,8 @@
     <div class="col-md-2"><div class="card p-3"><small>ضایعات</small><strong>{{ "%.2f"|format(totals.waste_qty) }}</strong></div></div>
     <div class="col-md-2"><div class="card p-3"><small>دوباره‌کاری</small><strong>{{ "%.2f"|format(totals.rework_qty) }}</strong></div></div>
     <div class="col-md-2"><div class="card p-3"><small>درصد ضایعات واقعی</small><strong>{% if totals.actual_waste_percent is not none %}{{ "%.2f"|format(totals.actual_waste_percent) }}٪{% else %}—{% endif %}</strong></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>کل توقف (دقیقه)</small><strong>{{ "%.2f"|format(totals.stop_minutes) }}</strong></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>توقفِ عدم‌دسترسی (دقیقه)</small><strong>{{ "%.2f"|format(totals.unavailability_minutes) }}</strong></div></div>
   </div>
 
   <div class="alert alert-info">
@@ -92,6 +94,8 @@
           <th>ضایعات واقعی ٪</th>
           <th>مازاد ضایعات</th>
           <th>دوباره‌کاری</th>
+          <th>کل توقف (دقیقه)</th>
+          <th>عدم‌دسترسی (دقیقه)</th>
         </tr>
       </thead>
       <tbody>
@@ -109,9 +113,11 @@
           <td>{% if r.actual_waste_percent is not none %}{{ "%.2f"|format(r.actual_waste_percent) }}٪{% else %}—{% endif %}</td>
           <td>{% if r.waste_excess is not none %}{{ "%.2f"|format(r.waste_excess) }}{% else %}—{% endif %}</td>
           <td>{{ "%.2f"|format(r.rework_qty) }}</td>
+          <td>{{ "%.2f"|format(r.stop_minutes) }}</td>
+          <td>{{ "%.2f"|format(r.unavailability_minutes) }}</td>
         </tr>
         {% else %}
-        <tr><td colspan="12" class="text-center">برای فیلتر انتخاب‌شده آیتم برنامه تأییدشده‌ای پیدا نشد.</td></tr>
+        <tr><td colspan="14" class="text-center">برای فیلتر انتخاب‌شده آیتم برنامه تأییدشده‌ای پیدا نشد.</td></tr>
         {% endfor %}
       </tbody>
     </table>
