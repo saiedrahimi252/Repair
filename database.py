@@ -709,6 +709,23 @@ _TABLES = {
         [approved_at] DATETIME2 NULL,
         [notes] NVARCHAR(MAX)
     """,
+    "production_entries": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [plan_item_id] INT NOT NULL,
+        [production_date] DATE NOT NULL,
+        [shift_id] INT NOT NULL,
+        [employee_id] INT NOT NULL,
+        [machine_id] INT NULL,
+        [quantity] FLOAT NOT NULL,
+        [notes] NVARCHAR(MAX),
+        [created_by] INT NULL,
+        [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT CK_prod_entry_quantity_positive CHECK ([quantity] > 0),
+        CONSTRAINT FK_prod_entry_plan_item FOREIGN KEY ([plan_item_id]) REFERENCES production_plan_items([id]),
+        CONSTRAINT FK_prod_entry_shift FOREIGN KEY ([shift_id]) REFERENCES production_shifts([id]),
+        CONSTRAINT FK_prod_entry_employee FOREIGN KEY ([employee_id]) REFERENCES production_employees([id]),
+        CONSTRAINT FK_prod_entry_machine FOREIGN KEY ([machine_id]) REFERENCES production_machines([id])
+    """,
     "production_plan_items": """
         [id] INT IDENTITY(1,1) PRIMARY KEY,
         [plan_id] INT NOT NULL,
@@ -733,7 +750,7 @@ _TABLE_ORDER = [
     "machine_passport", "machine_product_usage", "machine_passport_meta",
     "production_products", "production_suppliers", "production_raw_materials", "production_stations",
     "production_machines", "production_station_products", "production_employees", "production_shifts",
-    "production_plans", "production_plan_items",
+    "production_plans", "production_plan_items", "production_entries",
 ]
 
 
