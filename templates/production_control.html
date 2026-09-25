@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h2>کنترل تولید</h2>
+      <p class="text-muted mb-0">مقایسه برنامه، تولید واقعی، ضایعات و دوباره‌کاری — بدون محاسبه OEE</p>
+    </div>
+    <a class="btn btn-secondary" href="{{ url_for('production.dashboard') }}">بازگشت به داشبورد تولید</a>
+  </div>
+
+  <form method="get" class="card p-3 mb-4">
+    <div class="row g-3">
+      <div class="col-md-2">
+        <label class="form-label">از تاریخ</label>
+        <input type="date" name="date_from" class="form-control" value="{{ filters.date_from }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">تا تاریخ</label>
+        <input type="date" name="date_to" class="form-control" value="{{ filters.date_to }}">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">محصول</label>
+        <select name="product_id" class="form-select">
+          <option value="">همه</option>
+          {% for p in products %}
+          <option value="{{ p.id }}" {% if filters.product_id|string == p.id|string %}selected{% endif %}>{{ p.code }} — {{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">ایستگاه</label>
+        <select name="station_id" class="form-select">
+          <option value="">همه</option>
+          {% for s in stations %}
+          <option value="{{ s.id }}" {% if filters.station_id|string == s.id|string %}selected{% endif %}>{{ s.code }} — {{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">شیفت رویداد</label>
+        <select name="shift_id" class="form-select">
+          <option value="">همه</option>
+          {% for s in shifts %}
+          <option value="{{ s.id }}" {% if filters.shift_id|string == s.id|string %}selected{% endif %}>{{ s.code }} — {{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">پرسنل رویداد</label>
+        <select name="employee_id" class="form-select">
+          <option value="">همه</option>
+          {% for e in employees %}
+          <option value="{{ e.id }}" {% if filters.employee_id|string == e.id|string %}selected{% endif %}>{{ e.personnel_code }} — {{ e.full_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12">
+        <button class="btn btn-primary" type="submit">اعمال فیلتر</button>
+        <a class="btn btn-outline-secondary" href="{{ url_for('production.production_control') }}">حذف فیلتر</a>
+      </div>
+    </div>
+  </form>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-2"><div class="card p-3"><small>هدف برنامه</small><strong>{{ "%.2f"|format(totals.target_qty) }}</strong></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>تولید واقعی</small><strong>{{ "%.2f"|format(totals.actual_production) }}</strong></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>انحراف تولید</small><strong>{{ "%.2f"|format(totals.production_variance) }}</strong></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>ضایعات</small><strong>{{ "%.2f"|format(totals.waste_qty) }}</strong></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>دوباره‌کاری</small><strong>{{ "%.2f"|format(totals.rework_qty) }}</strong></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>درصد ضایعات واقعی</small><strong>{% if totals.actual_waste_percent is not none %}{{ "%.2f"|format(totals.actual_waste_percent) }}٪{% else %}—{% endif %}</strong></div></div>
+  </div>
+
+  <div class="alert alert-info">
+    «حد مجاز ضایعات» در این گزارش، در صورت تعریف درصد مجاز برای محصول/ایستگاه، به‌صورت
+    <b>تولید واقعی × درصد مجاز</b> محاسبه می‌شود. این گزارش هنوز OEE، تشویقی یا فرمول‌های نهایی Excel را محاسبه نمی‌کند.
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-bordered table-striped align-middle">
+      <thead>
+        <tr>
+          <th>تاریخ کاری</th>
+          <th>محصول</th>
+          <th>ایستگاه</th>
+          <th>هدف</th>
+          <th>تولید واقعی</th>
+          <th>انحراف</th>
+          <th>ضایعات</th>
+          <th>حد مجاز ٪</th>
+          <th>حد مجاز مقداری</th>
+          <th>ضایعات واقعی ٪</th>
+          <th>مازاد ضایعات</th>
+          <th>دوباره‌کاری</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td>{{ r.work_day }}</td>
+          <td>{{ r.product_code }} — {{ r.product_name }}</td>
+          <td>{% if r.station_name %}{{ r.station_code }} — {{ r.station_name }}{% else %}—{% endif %}</td>
+          <td>{{ "%.2f"|format(r.target_qty) }}</td>
+          <td>{{ "%.2f"|format(r.actual_production) }}</td>
+          <td>{{ "%.2f"|format(r.production_variance) }}</td>
+          <td>{{ "%.2f"|format(r.waste_qty) }}</td>
+          <td>{% if r.allowed_waste_percent is not none %}{{ "%.2f"|format(r.allowed_waste_percent) }}٪{% else %}تعریف نشده{% endif %}</td>
+          <td>{% if r.allowed_waste_qty is not none %}{{ "%.2f"|format(r.allowed_waste_qty) }}{% else %}—{% endif %}</td>
+          <td>{% if r.actual_waste_percent is not none %}{{ "%.2f"|format(r.actual_waste_percent) }}٪{% else %}—{% endif %}</td>
+          <td>{% if r.waste_excess is not none %}{{ "%.2f"|format(r.waste_excess) }}{% else %}—{% endif %}</td>
+          <td>{{ "%.2f"|format(r.rework_qty) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="12" class="text-center">برای فیلتر انتخاب‌شده آیتم برنامه تأییدشده‌ای پیدا نشد.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
