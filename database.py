@@ -651,8 +651,9 @@ def _column_exists(conn: Connection, table: str, column: str) -> bool:
 
 def _migrate_status_column(conn: Connection) -> None:
     """
-    ستون «status» را برای گردش کار دومرحله‌ای اضافه می‌کند و ستون
-    وضعیت عملیاتی دستگاه را نیز برای ثبت وضعیت لحظه‌ای خرابی اضافه می‌کند.
+    ستون‌های گردش کار درخواست‌ها را برای مرحله‌ی «در انتظار / در حال بررسی /
+    تکمیل شده» اضافه می‌کند و ستون وضعیت عملیاتی دستگاه را نیز برای ثبت
+    وضعیت لحظه‌ای خرابی اضافه می‌کند.
     """
     if not _column_exists(conn, "data", "status"):
         conn.execute("ALTER TABLE data ADD [status] NVARCHAR(50)")
@@ -661,6 +662,17 @@ def _migrate_status_column(conn: Connection) -> None:
 
     if not _column_exists(conn, "data", "device_operational_status"):
         conn.execute("ALTER TABLE data ADD [device_operational_status] NVARCHAR(50) NULL")
+        conn.commit()
+
+    # قفل بررسی و تکمیل: شناسه‌ی نیرویی که درخواست را باز کرده و زمان قفل.
+    # این ستون‌ها باعث می‌شوند قفل در خود SQL Server ثبت شود و بین چند
+    # کاربر/چند worker برنامه مشترک و قابل اتکا باشد.
+    if not _column_exists(conn, "data", "review_locked_by"):
+        conn.execute("ALTER TABLE data ADD [review_locked_by] INT NULL")
+        conn.commit()
+
+    if not _column_exists(conn, "data", "review_locked_at"):
+        conn.execute("ALTER TABLE data ADD [review_locked_at] NVARCHAR(50) NULL")
         conn.commit()
 
 
