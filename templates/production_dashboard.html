@@ -6,9 +6,9 @@
   <div class="row g-3">
     <div class="col-md-4"><a class="card p-3 text-decoration-none" href="{{ url_for('production.products') }}"><b>محصولات</b><span>{{ counts.products }}</span></a></div>
     <div class="col-md-4"><a class="card p-3 text-decoration-none" href="{{ url_for('production.stations') }}"><b>ایستگاه‌ها</b><span>{{ counts.stations }}</span></a></div>
-    <div class="col-md-4"><div class="card p-3"><b>ماشین‌ها</b><span>{{ counts.machines }}</span></div></div>
-    <div class="col-md-4"><div class="card p-3"><b>پرسنل</b><span>{{ counts.employees }}</span></div></div>
-    <div class="col-md-4"><div class="card p-3"><b>شیفت‌ها</b><span>{{ counts.shifts }}</span></div></div>
+    <div class="col-md-4"><a class="card p-3 text-decoration-none" href="{{ url_for('production.machines') }}"><b>ماشین‌ها</b><span>{{ counts.machines }}</span></a></div>
+    <div class="col-md-4"><a class="card p-3 text-decoration-none" href="{{ url_for('production.employees') }}"><b>پرسنل</b><span>{{ counts.employees }}</span></a></div>
+    <div class="col-md-4"><a class="card p-3 text-decoration-none" href="{{ url_for('production.shifts') }}"><b>شیفت‌ها</b><span>{{ counts.shifts }}</span></a></div>
     <div class="col-md-4"><div class="card p-3"><b>برنامه‌ها</b><span>{{ counts.plans }}</span></div></div>
   </div>
 </div>
