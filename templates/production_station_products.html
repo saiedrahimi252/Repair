@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}محصول و ایستگاه تولید{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h2>رابط محصول و ایستگاه</h2>
+      <p class="text-muted mb-0">تعیین اینکه هر محصول در کدام ایستگاه تولید می‌شود و استانداردهای آن</p>
+    </div>
+    <a class="btn btn-outline-primary" href="{{ url_for('production.dashboard') }}">بازگشت به تولید</a>
+  </div>
+
+  <div class="alert alert-warning">
+    مقادیر استاندارد فعلاً داده پایه هستند و هنوز مبنای محاسبه OEE یا تشویقی قرار نمی‌گیرند؛
+    فرمول‌ها بعد از تطبیق کامل با Excel تثبیت خواهند شد.
+  </div>
+
+  <div class="card">
+    <div class="card-header">ثبت رابطه</div>
+    <div class="card-body">
+      <form method="post" class="row g-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-4">
+          <label class="form-label required">ایستگاه</label>
+          <select class="form-select" name="station_id" required>
+            <option value="">انتخاب کنید...</option>
+            {% for s in stations %}
+            <option value="{{ s.id }}">{{ s.code }} — {{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label required">محصول</label>
+          <select class="form-select" name="product_id" required>
+            <option value="">انتخاب کنید...</option>
+            {% for p in products %}
+            <option value="{{ p.id }}">{{ p.code }} — {{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">زمان سیکل استاندارد (ثانیه)</label>
+          <input class="form-control" type="number" step="any" min="0" name="standard_cycle_time_seconds">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">استاندارد تولید در ساعت</label>
+          <input class="form-control" type="number" step="any" min="0" name="standard_qty_1h">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">حد مجاز ضایعات (%)</label>
+          <input class="form-control" type="number" step="any" min="0" max="100" name="allowed_waste_percent">
+        </div>
+        <div class="col-12">
+          <button class="btn btn-primary" type="submit">ثبت رابطه</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">رابط‌های ثبت‌شده</div>
+    <div class="card-body table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr><th>ایستگاه</th><th>محصول</th><th>سیکل استاندارد</th><th>تولید ساعتی</th><th>ضایعات مجاز</th><th>وضعیت</th></tr>
+        </thead>
+        <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ r.station_code }} — {{ r.station_name }}</td>
+            <td>{{ r.product_code }} — {{ r.product_name }}</td>
+            <td>{{ r.standard_cycle_time_seconds if r.standard_cycle_time_seconds is not none else '—' }}</td>
+            <td>{{ r.standard_qty_1h if r.standard_qty_1h is not none else '—' }}</td>
+            <td>{{ r.allowed_waste_percent if r.allowed_waste_percent is not none else '—' }}</td>
+            <td>{{ 'فعال' if r.is_active else 'غیرفعال' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" class="text-muted">هنوز رابطه‌ای ثبت نشده است.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
