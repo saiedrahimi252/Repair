@@ -31,3 +31,11 @@ production_products, production_suppliers, production_raw_materials, production_
 
 ## محدودیت
 تا قبل از تثبیت منطق و کلیدها، migration گسترده یا import انبوه انجام نشود. اتصال production_machines به dastgahjadid.cod در ابتدا منطقی/کنترلی باشد و FK فیزیکی ایجاد نشود.
+
+
+## آخرین پیشرفت اجرایی — 2026-09-25
+- صفحات Master Data برای ماشین‌های تولید، پرسنل تولید و شیفت‌ها اضافه شد.
+- مسیرهای جدید: /production/machines ، /production/employees ، /production/shifts
+- مسیرهای ماژول تولید اکنون فقط برای نقش admin قابل دسترسی هستند.
+- اتصال ماشین تولید به دستگاه CMMS با بررسی وجود dastgahjadid.cod انجام می‌شود و رکورد CMMS تغییر نمی‌کند.
+- اجرای واقعی روی سرور هنوز انجام نشده است.
