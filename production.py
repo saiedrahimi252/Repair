@@ -519,6 +519,139 @@ def plan_detail(plan_id):
         db.close()
 
 
+@production_bp.route("/entries", methods=["GET", "POST"])
+@roles_required("admin")
+def production_entries():
+    db = _db()
+    try:
+        if request.method == "POST":
+            plan_item_id_raw = request.form.get("plan_item_id", "").strip()
+            shift_id_raw = request.form.get("shift_id", "").strip()
+            employee_id_raw = request.form.get("employee_id", "").strip()
+            machine_id_raw = request.form.get("machine_id", "").strip()
+            production_date = request.form.get("production_date", "").strip()
+            quantity_raw = request.form.get("quantity", "").strip()
+            notes = request.form.get("notes", "").strip() or None
+
+            if not plan_item_id_raw or not shift_id_raw or not employee_id_raw or not production_date or not quantity_raw:
+                flash("برنامه، شیفت، پرسنل، تاریخ تولید و مقدار تولید الزامی است.", "error")
+                return redirect(url_for("production.production_entries"))
+
+            try:
+                plan_item_id = int(plan_item_id_raw)
+                shift_id = int(shift_id_raw)
+                employee_id = int(employee_id_raw)
+                machine_id = int(machine_id_raw) if machine_id_raw else None
+                quantity = float(quantity_raw)
+
+                if not math.isfinite(quantity) or quantity <= 0:
+                    raise ValueError("مقدار تولید باید عدد معتبر و بیشتر از صفر باشد.")
+
+                item = db.execute(
+                    """SELECT i.id, i.product_id, i.station_id, i.work_day,
+                              p.status AS plan_status,
+                              pr.name AS product_name,
+                              s.name AS station_name
+                       FROM production_plan_items i
+                       JOIN production_plans p ON p.id = i.plan_id
+                       JOIN production_products pr ON pr.id = i.product_id
+                       LEFT JOIN production_stations s ON s.id = i.station_id
+                       WHERE i.id = ?""",
+                    (plan_item_id,),
+                ).fetchone()
+                if item is None:
+                    raise ValueError("آیتم برنامه پیدا نشد.")
+                if item["plan_status"] != "approved":
+                    raise ValueError("ثبت تولید فقط برای برنامه تأییدشده مجاز است.")
+
+                shift = db.execute(
+                    "SELECT id FROM production_shifts WHERE id = ? AND is_active = 1",
+                    (shift_id,),
+                ).fetchone()
+                if shift is None:
+                    raise ValueError("شیفت انتخاب‌شده معتبر نیست.")
+
+                employee = db.execute(
+                    "SELECT id FROM production_employees WHERE id = ? AND is_active = 1",
+                    (employee_id,),
+                ).fetchone()
+                if employee is None:
+                    raise ValueError("پرسنل انتخاب‌شده معتبر نیست.")
+
+                if machine_id is not None:
+                    machine = db.execute(
+                        "SELECT id, station_id FROM production_machines WHERE id = ? AND is_active = 1",
+                        (machine_id,),
+                    ).fetchone()
+                    if machine is None:
+                        raise ValueError("ماشین انتخاب‌شده معتبر نیست.")
+                    if item["station_id"] is not None and machine["station_id"] != item["station_id"]:
+                        raise ValueError("ماشین انتخاب‌شده متعلق به ایستگاه این آیتم برنامه نیست.")
+
+                db.execute(
+                    """INSERT INTO production_entries
+                       (plan_item_id,production_date,shift_id,employee_id,machine_id,quantity,notes,created_by)
+                       VALUES (?,?,?,?,?,?,?,?)""",
+                    (plan_item_id, production_date, shift_id, employee_id, machine_id,
+                     quantity, notes, session.get("user_id")),
+                )
+                db.commit()
+                flash("تولید واقعی با موفقیت ثبت شد.", "success")
+            except Exception as exc:
+                db.rollback()
+                flash(f"ثبت تولید انجام نشد: {exc}", "error")
+            return redirect(url_for("production.production_entries"))
+
+        rows = db.execute(
+            """SELECT e.id, e.production_date, e.quantity, e.notes, e.created_at,
+                      pr.code AS product_code, pr.name AS product_name,
+                      s.name AS station_name,
+                      sh.name AS shift_name,
+                      pe.full_name AS employee_name,
+                      m.name AS machine_name
+               FROM production_entries e
+               JOIN production_plan_items i ON i.id = e.plan_item_id
+               JOIN production_products pr ON pr.id = i.product_id
+               LEFT JOIN production_stations s ON s.id = i.station_id
+               JOIN production_shifts sh ON sh.id = e.shift_id
+               JOIN production_employees pe ON pe.id = e.employee_id
+               LEFT JOIN production_machines m ON m.id = e.machine_id
+               ORDER BY e.production_date DESC, e.id DESC"""
+        ).fetchall()
+
+        plan_items = db.execute(
+            """SELECT i.id, i.work_day, i.target_qty, p.plan_date,
+                      pr.code AS product_code, pr.name AS product_name,
+                      s.name AS station_name
+               FROM production_plan_items i
+               JOIN production_plans p ON p.id = i.plan_id
+               JOIN production_products pr ON pr.id = i.product_id
+               LEFT JOIN production_stations s ON s.id = i.station_id
+               WHERE p.status = 'approved'
+               ORDER BY i.work_day DESC, i.id DESC"""
+        ).fetchall()
+        shifts_rows = db.execute(
+            "SELECT id, code, name FROM production_shifts WHERE is_active = 1 ORDER BY code"
+        ).fetchall()
+        employees_rows = db.execute(
+            "SELECT id, personnel_code, full_name FROM production_employees WHERE is_active = 1 ORDER BY full_name"
+        ).fetchall()
+        machines_rows = db.execute(
+            "SELECT id, code, name, station_id FROM production_machines WHERE is_active = 1 ORDER BY name"
+        ).fetchall()
+
+        return render_template(
+            "production_entries.html",
+            rows=rows,
+            plan_items=plan_items,
+            shifts=shifts_rows,
+            employees=employees_rows,
+            machines=machines_rows,
+        )
+    finally:
+        db.close()
+
+
 @production_bp.route("/plans/<int:plan_id>/approve", methods=["POST"])
 @roles_required("admin")
 def approve_plan(plan_id):
@@ -544,12 +677,6 @@ def approve_plan(plan_id):
             flash("برنامه بدون آیتم قابل تأیید نیست.", "error")
             return redirect(url_for("production.plan_detail", plan_id=plan_id))
 
-        db.execute(
-            """UPDATE production_plans
-               SET status = 'approved', approved_by = ?, approved_at = SYSUTCDATETIME()
-               WHERE id = ? AND status = 'draft'""",
-            (session.get("user_id"), plan_id),
-        )
         updated = db.execute(
             """UPDATE production_plans
                SET status = 'approved', approved_by = ?, approved_at = SYSUTCDATETIME()
