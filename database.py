@@ -811,7 +811,8 @@ _TABLE_ORDER = [
     "machine_passport", "machine_product_usage", "machine_passport_meta",
     "production_products", "production_suppliers", "production_raw_materials", "production_stations",
     "production_machines", "production_station_products", "production_employees", "production_shifts",
-    "production_plans", "production_plan_items", "production_stop_types", "production_entries", "production_stops",
+    "production_plans", "production_plan_items", "production_stop_types", "production_defect_types",
+    "production_entries", "production_stops", "production_waste_entries",
 ]
 
 
