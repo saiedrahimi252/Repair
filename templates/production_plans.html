@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}برنامه‌های تولید{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h2>برنامه‌های تولید</h2>
+      <p class="text-muted mb-0">ایجاد برنامه، افزودن آیتم‌ها و سپس تأیید و قفل کردن برنامه</p>
+    </div>
+    <a class="btn btn-outline-primary" href="{{ url_for('production.dashboard') }}">بازگشت به تولید</a>
+  </div>
+
+  <div class="alert alert-info">
+    برنامه ابتدا به‌صورت <b>پیش‌نویس</b> ساخته می‌شود. بعد از تکمیل آیتم‌ها، با تأیید مدیر قفل می‌شود و
+    فعلاً امکان تغییر آیتم‌های برنامه تأییدشده وجود ندارد.
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header">ایجاد برنامه جدید</div>
+    <div class="card-body">
+      <form method="post" class="row g-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-3">
+          <label class="form-label required">تاریخ برنامه</label>
+          <input class="form-control" type="date" name="plan_date" required>
+        </div>
+        <div class="col-md-7">
+          <label class="form-label">توضیحات</label>
+          <input class="form-control" name="notes" maxlength="1000">
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <button class="btn btn-primary w-100" type="submit">ایجاد برنامه</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">برنامه‌های ثبت‌شده</div>
+    <div class="card-body table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th>شماره</th><th>تاریخ</th><th>وضعیت</th><th>تعداد آیتم</th>
+            <th>ایجادکننده</th><th>تأییدکننده</th><th>عملیات</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ r.id }}</td>
+            <td>{{ r.plan_date }}</td>
+            <td>
+              {% if r.status == 'draft' %}
+                <span class="badge bg-warning text-dark">پیش‌نویس</span>
+              {% elif r.status == 'approved' %}
+                <span class="badge bg-success">تأییدشده</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ r.status }}</span>
+              {% endif %}
+            </td>
+            <td>{{ r.item_count }}</td>
+            <td>{{ r.creator_name or '—' }}</td>
+            <td>{{ r.approver_name or '—' }}</td>
+            <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('production.plan_detail', plan_id=r.id) }}">جزئیات</a></td>
+          </tr>
+        {% else %}
+          <tr><td colspan="7" class="text-muted">هنوز برنامه‌ای ثبت نشده است.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
