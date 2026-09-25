@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>ثبت تولید واقعی</h2>
+    <a class="btn btn-secondary" href="{{ url_for('production.dashboard') }}">بازگشت به تولید</a>
+  </div>
+
+  <div class="card p-3 mb-4">
+    <h5>ثبت رکورد جدید</h5>
+    <p class="text-muted">فعلاً فقط برای آیتم‌های برنامه تأییدشده فعال است. ضایعات، دوباره‌کاری و توقف در مراحل بعدی به‌صورت رویدادهای جداگانه اضافه می‌شوند.</p>
+    <form method="post" class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label">آیتم برنامه</label>
+        <select name="plan_item_id" class="form-select" required>
+          <option value="">انتخاب کنید</option>
+          {% for item in plan_items %}
+          <option value="{{ item.id }}">
+            {{ item.work_day }} — {{ item.product_code }} / {{ item.product_name }}
+            {% if item.station_name %} — {{ item.station_name }}{% endif %}
+            — هدف: {{ item.target_qty }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">تاریخ تولید</label>
+        <input type="date" name="production_date" class="form-control" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">مقدار تولید</label>
+        <input type="number" name="quantity" class="form-control" min="0.000001" step="any" required>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">شیفت</label>
+        <select name="shift_id" class="form-select" required>
+          <option value="">انتخاب کنید</option>
+          {% for shift in shifts %}
+          <option value="{{ shift.id }}">{{ shift.code }} — {{ shift.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">پرسنل</label>
+        <select name="employee_id" class="form-select" required>
+          <option value="">انتخاب کنید</option>
+          {% for employee in employees %}
+          <option value="{{ employee.id }}">{{ employee.personnel_code }} — {{ employee.full_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">ماشین (اختیاری)</label>
+        <select name="machine_id" class="form-select">
+          <option value="">بدون ماشین</option>
+          {% for machine in machines %}
+          <option value="{{ machine.id }}">{{ machine.code }} — {{ machine.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-12">
+        <label class="form-label">توضیحات</label>
+        <textarea name="notes" class="form-control" rows="2"></textarea>
+      </div>
+      <div class="col-12">
+        <button class="btn btn-primary" type="submit">ثبت تولید</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card p-3">
+    <h5>سوابق ثبت تولید</h5>
+    <div class="table-responsive">
+      <table class="table table-striped table-sm">
+        <thead>
+          <tr>
+            <th>تاریخ</th><th>محصول</th><th>ایستگاه</th><th>شیفت</th>
+            <th>پرسنل</th><th>ماشین</th><th>مقدار</th><th>توضیحات</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for row in rows %}
+          <tr>
+            <td>{{ row.production_date }}</td>
+            <td>{{ row.product_code }} — {{ row.product_name }}</td>
+            <td>{{ row.station_name or '-' }}</td>
+            <td>{{ row.shift_name }}</td>
+            <td>{{ row.employee_name }}</td>
+            <td>{{ row.machine_name or '-' }}</td>
+            <td>{{ row.quantity }}</td>
+            <td>{{ row.notes or '' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="8" class="text-center text-muted">هنوز رکوردی ثبت نشده است.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
