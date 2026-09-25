@@ -262,3 +262,86 @@ def shifts():
         return render_template("production_shifts.html", rows=rows)
     finally:
         db.close()
+
+
+@production_bp.route("/station-products", methods=["GET", "POST"])
+@roles_required("admin")
+def station_products():
+    db = _db()
+    try:
+        if request.method == "POST":
+            station_id_raw = request.form.get("station_id", "").strip()
+            product_id_raw = request.form.get("product_id", "").strip()
+            cycle_raw = request.form.get("standard_cycle_time_seconds", "").strip()
+            qty_raw = request.form.get("standard_qty_1h", "").strip()
+            waste_raw = request.form.get("allowed_waste_percent", "").strip()
+
+            if not station_id_raw or not product_id_raw:
+                flash("ایستگاه و محصول الزامی است.", "error")
+                return redirect(url_for("production.station_products"))
+
+            try:
+                station_id = int(station_id_raw)
+                product_id = int(product_id_raw)
+                station = db.execute(
+                    "SELECT id FROM production_stations WHERE id = ? AND is_active = 1",
+                    (station_id,),
+                ).fetchone()
+                product = db.execute(
+                    "SELECT id FROM production_products WHERE id = ? AND is_active = 1",
+                    (product_id,),
+                ).fetchone()
+                if station is None or product is None:
+                    raise ValueError("ایستگاه یا محصول انتخاب‌شده معتبر نیست.")
+
+                def _number(value, field_name, minimum=0):
+                    if not value:
+                        return None
+                    number = float(value)
+                    if number < minimum:
+                        raise ValueError(f"{field_name} نمی‌تواند منفی باشد.")
+                    return number
+
+                cycle = _number(cycle_raw, "زمان سیکل")
+                qty = _number(qty_raw, "استاندارد تولید ساعتی")
+                waste = _number(waste_raw, "حد مجاز ضایعات")
+                if waste is not None and waste > 100:
+                    raise ValueError("حد مجاز ضایعات باید بین 0 تا 100 درصد باشد.")
+
+                db.execute(
+                    """INSERT INTO production_station_products
+                       (station_id,product_id,standard_cycle_time_seconds,standard_qty_1h,allowed_waste_percent,is_active)
+                       VALUES (?,?,?,?,?,1)""",
+                    (station_id, product_id, cycle, qty, waste),
+                )
+                db.commit()
+                flash("رابط محصول و ایستگاه با موفقیت ثبت شد.", "success")
+            except Exception as exc:
+                db.rollback()
+                flash(f"ثبت رابطه انجام نشد: {exc}", "error")
+            return redirect(url_for("production.station_products"))
+
+        rows = db.execute(
+            """SELECT sp.id, sp.standard_cycle_time_seconds, sp.standard_qty_1h,
+                      sp.allowed_waste_percent, sp.is_active,
+                      s.code AS station_code, s.name AS station_name,
+                      p.code AS product_code, p.name AS product_name
+               FROM production_station_products sp
+               JOIN production_stations s ON s.id = sp.station_id
+               JOIN production_products p ON p.id = sp.product_id
+               ORDER BY s.name, p.name"""
+        ).fetchall()
+        stations_rows = db.execute(
+            "SELECT id, code, name FROM production_stations WHERE is_active = 1 ORDER BY name"
+        ).fetchall()
+        products_rows = db.execute(
+            "SELECT id, code, name FROM production_products WHERE is_active = 1 ORDER BY name"
+        ).fetchall()
+        return render_template(
+            "production_station_products.html",
+            rows=rows,
+            stations=stations_rows,
+            products=products_rows,
+        )
+    finally:
+        db.close()
