@@ -1235,7 +1235,7 @@ def production_control():
                  AND sp.is_active = 1
                 WHERE {where_items}
                 ORDER BY i.work_day, pr.name, s.name, i.id""",
-            item_params + production_params + waste_params + waste_params,
+            production_params + waste_params + waste_params + item_params,
         ).fetchall()
 
         # برای هر ردیف، شاخص‌های کنترلی را در Python محاسبه می‌کنیم تا
