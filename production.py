@@ -1248,6 +1248,7 @@ def production_control():
             "waste_qty": 0.0,
             "rework_qty": 0.0,
             "allowed_waste_qty": 0.0,
+            "allowed_waste_defined": False,
         }
 
         for row in rows:
@@ -1283,6 +1284,7 @@ def production_control():
             totals["rework_qty"] += rework
             if allowed_qty is not None:
                 totals["allowed_waste_qty"] += allowed_qty
+                totals["allowed_waste_defined"] = True
 
         totals["production_variance"] = totals["actual_production"] - totals["target_qty"]
         totals["actual_waste_percent"] = (
@@ -1291,7 +1293,7 @@ def production_control():
         )
         totals["waste_excess"] = (
             totals["waste_qty"] - totals["allowed_waste_qty"]
-            if totals["allowed_waste_qty"] > 0 else None
+            if totals["allowed_waste_defined"] else None
         )
 
         products_rows = db.execute(
