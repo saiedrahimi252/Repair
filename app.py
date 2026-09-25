@@ -1710,7 +1710,7 @@ def request_delete(request_id):
 @login_required
 @roles_required(*CAN_REVIEW_REQUEST)
 def requests_pending():
-    """صفحه‌ی «بررسی و انجام»: لیست درخواست‌هایی که هنوز تکمیل نشده‌اند."""
+    """صفحه‌ی «بررسی و انجام»: فقط درخواست‌هایی که هنوز کسی برای بررسی قفل نکرده است."""
     db = get_db()
     rows = db.execute(
         "SELECT * FROM data WHERE status = 'pending' OR status IS NULL ORDER BY id DESC"
@@ -1731,27 +1731,63 @@ def requests_pending():
 @roles_required(*CAN_REVIEW_REQUEST)
 def request_complete(request_id):
     """
-    بررسی و تکمیل درخواست (مرحله ۲): شرح کار انجام شده، واحد مرتبط،
-    زمان‌بندی، مجری‌ها و مواد مصرفی. با ثبت این فرم، وضعیت درخواست
-    completed می‌شود.
+    بررسی و تکمیل درخواست (مرحله ۲).
+
+    به محض ورود اولین نیرو به صفحه‌ی «بررسی و تکمیل»، درخواست به وضعیت
+    in_progress می‌رود و با شناسه‌ی همان نیرو قفل می‌شود. بنابراین از لیست
+    «بررسی و تکمیل» برای نیروهای دیگر حذف می‌شود و فقط همان نیرو می‌تواند
+    فرم را ادامه دهد. ثبت نهایی، وضعیت را به completed تغییر می‌دهد.
     """
     db = get_db()
-    row = db.execute("SELECT * FROM data WHERE id = ?", (request_id,)).fetchone()
-    if not row:
-        flash("درخواست یافت نشد.", "error")
-        return redirect(url_for("requests_pending"))
+    current_user_id = current_user()["id"]
 
-    if request.method == "POST":
-        form = request.form
+    if request.method == "GET":
+        # قفل اتمیک: فقط اولین نفری که درخواست pending را باز کند موفق می‌شود.
+        # این UPDATE در SQL Server داخل تراکنش اجرا می‌شود؛ در نتیجه دو نیروی
+        # همزمان نمی‌توانند یک درخواست را با هم صاحب شوند.
         with db:
             db.execute(
+                """UPDATE data
+                   SET status = 'in_progress',
+                       review_locked_by = ?,
+                       review_locked_at = ?
+                   WHERE id = ?
+                     AND (status = 'pending' OR status IS NULL)""",
+                (
+                    current_user_id,
+                    datetime.datetime.now().isoformat(timespec="seconds"),
+                    request_id,
+                ),
+            )
+
+        row = db.execute("SELECT * FROM data WHERE id = ?", (request_id,)).fetchone()
+        if not row:
+            flash("درخواست یافت نشد.", "error")
+            return redirect(url_for("requests_pending"))
+
+        if row["status"] != "in_progress" or row["review_locked_by"] != current_user_id:
+            flash("این درخواست توسط نیروی دیگری در حال بررسی است.", "warning")
+            return redirect(url_for("requests_pending"))
+    else:
+        # ثبت نهایی فقط برای همان نیرویی مجاز است که درخواست را قفل کرده است.
+        form = request.form
+        row = db.execute("SELECT * FROM data WHERE id = ?", (request_id,)).fetchone()
+        if not row:
+            flash("درخواست یافت نشد.", "error")
+            return redirect(url_for("requests_pending"))
+
+        with db:
+            cur = db.execute(
                 """UPDATE data SET
                     sharhekareanjamshode = ?,
                     barghi = ?, mekanik = ?, abzarsazi = ?, taminghate = ?,
                     kontrol = ?, tasisat = ?, tolid = ?, sayertakhir = ?,
                     tarikhstart = ?, timestart = ?, tarikhend = ?, timeEnd = ?,
-                    timetavaghofdastgah = ?, tozihat = ?, status = 'completed'
-                   WHERE id = ?""",
+                    timetavaghofdastgah = ?, tozihat = ?, status = 'completed',
+                    review_locked_by = NULL, review_locked_at = NULL
+                   WHERE id = ?
+                     AND status = 'in_progress'
+                     AND review_locked_by = ?""",
                 (
                     form.get("sharhekareanjamshode", "").strip(),
                     *(1 if form.get(f"dep_{k}") else 0 for k, _ in DEPARTMENTS),
@@ -1762,8 +1798,14 @@ def request_complete(request_id):
                     form.get("timetavaghofdastgah", "").strip(),
                     form.get("tozihat", "").strip(),
                     request_id,
+                    current_user_id,
                 ),
             )
+
+            if cur.rowcount == 0:
+                db.rollback()
+                flash("این درخواست دیگر در اختیار شما نیست یا توسط نیروی دیگری تکمیل شده است.", "warning")
+                return redirect(url_for("requests_pending"))
 
             device_code = row["codedastgah"]
 
