@@ -39,6 +39,7 @@ from jalali import (
     jalali_days_in_month, current_jalali_year, MONTH_NAMES_FA,
 )
 from text_utils import normalize_fa
+from production import production_bp
 
 try:
     from openpyxl import Workbook, load_workbook
@@ -48,6 +49,7 @@ except ImportError:  # pragma: no cover
     OPENPYXL_AVAILABLE = False
 
 app = Flask(__name__)
+app.register_blueprint(production_bp)
 
 # تنظیمات نشست امن برای استقرار اینترنتی. ظاهر برنامه و مسیرهای آن تغییری نمی‌کند.
 app.config.update(
