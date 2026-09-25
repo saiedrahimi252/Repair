@@ -705,6 +705,158 @@ def production_stops():
         db.close()
 
 
+
+@production_bp.route("/waste", methods=["GET", "POST"])
+@roles_required("admin")
+def production_waste_entries():
+    db = _db()
+    try:
+        if request.method == "POST":
+            plan_item_id_raw = request.form.get("plan_item_id", "").strip()
+            shift_id_raw = request.form.get("shift_id", "").strip()
+            defect_type_id_raw = request.form.get("defect_type_id", "").strip()
+            employee_id_raw = request.form.get("employee_id", "").strip()
+            machine_id_raw = request.form.get("machine_id", "").strip()
+            production_date = request.form.get("production_date", "").strip()
+            record_type = request.form.get("record_type", "").strip().lower()
+            classification = request.form.get("classification", "").strip() or None
+            quantity_raw = request.form.get("quantity", "").strip()
+            notes = request.form.get("notes", "").strip() or None
+
+            if not shift_id_raw or not production_date or not record_type or not quantity_raw:
+                flash("شیفت، تاریخ، نوع رکورد و مقدار الزامی است.", "error")
+                return redirect(url_for("production.production_waste_entries"))
+
+            try:
+                plan_item_id = int(plan_item_id_raw) if plan_item_id_raw else None
+                shift_id = int(shift_id_raw)
+                defect_type_id = int(defect_type_id_raw) if defect_type_id_raw else None
+                employee_id = int(employee_id_raw) if employee_id_raw else None
+                machine_id = int(machine_id_raw) if machine_id_raw else None
+                quantity = float(quantity_raw)
+
+                if record_type not in ("waste", "rework"):
+                    raise ValueError("نوع رکورد باید ضایعات یا دوباره‌کاری باشد.")
+                if not math.isfinite(quantity) or quantity <= 0:
+                    raise ValueError("مقدار باید عدد معتبر و بیشتر از صفر باشد.")
+
+                shift = db.execute(
+                    "SELECT id FROM production_shifts WHERE id = ? AND is_active = 1",
+                    (shift_id,),
+                ).fetchone()
+                if shift is None:
+                    raise ValueError("شیفت انتخاب‌شده معتبر نیست.")
+
+                item = None
+                if plan_item_id is not None:
+                    item = db.execute(
+                        """SELECT i.id, i.station_id, p.status AS plan_status
+                           FROM production_plan_items i
+                           JOIN production_plans p ON p.id = i.plan_id
+                           WHERE i.id = ?""",
+                        (plan_item_id,),
+                    ).fetchone()
+                    if item is None:
+                        raise ValueError("آیتم برنامه پیدا نشد.")
+                    if item["plan_status"] != "approved":
+                        raise ValueError("ثبت ضایعات/دوباره‌کاری فقط برای برنامه تأییدشده مجاز است.")
+
+                if defect_type_id is not None:
+                    defect = db.execute(
+                        "SELECT id FROM production_defect_types WHERE id = ? AND is_active = 1",
+                        (defect_type_id,),
+                    ).fetchone()
+                    if defect is None:
+                        raise ValueError("نوع عیب انتخاب‌شده معتبر نیست.")
+
+                if employee_id is not None:
+                    employee = db.execute(
+                        "SELECT id FROM production_employees WHERE id = ? AND is_active = 1",
+                        (employee_id,),
+                    ).fetchone()
+                    if employee is None:
+                        raise ValueError("پرسنل انتخاب‌شده معتبر نیست.")
+
+                if machine_id is not None:
+                    machine = db.execute(
+                        "SELECT id, station_id FROM production_machines WHERE id = ? AND is_active = 1",
+                        (machine_id,),
+                    ).fetchone()
+                    if machine is None:
+                        raise ValueError("ماشین انتخاب‌شده معتبر نیست.")
+                    if item is not None and item["station_id"] is not None and machine["station_id"] != item["station_id"]:
+                        raise ValueError("ماشین انتخاب‌شده متعلق به ایستگاه آیتم برنامه نیست.")
+
+                db.execute(
+                    """INSERT INTO production_waste_entries
+                       (plan_item_id,production_date,shift_id,employee_id,machine_id,
+                        defect_type_id,record_type,classification,quantity,notes,created_by)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                    (plan_item_id, production_date, shift_id, employee_id, machine_id,
+                     defect_type_id, record_type, classification, quantity, notes,
+                     session.get("user_id")),
+                )
+                db.commit()
+                flash("رکورد ضایعات/دوباره‌کاری با موفقیت ثبت شد.", "success")
+            except Exception as exc:
+                db.rollback()
+                flash(f"ثبت رکورد انجام نشد: {exc}", "error")
+            return redirect(url_for("production.production_waste_entries"))
+
+        rows = db.execute(
+            """SELECT w.id, w.production_date, w.record_type, w.classification,
+                      w.quantity, w.notes,
+                      pr.code AS product_code, pr.name AS product_name,
+                      s.name AS station_name, sh.name AS shift_name,
+                      e.full_name AS employee_name, m.name AS machine_name,
+                      d.code AS defect_code, d.name AS defect_name
+               FROM production_waste_entries w
+               LEFT JOIN production_plan_items i ON i.id = w.plan_item_id
+               LEFT JOIN production_products pr ON pr.id = i.product_id
+               LEFT JOIN production_stations s ON s.id = i.station_id
+               JOIN production_shifts sh ON sh.id = w.shift_id
+               LEFT JOIN production_employees e ON e.id = w.employee_id
+               LEFT JOIN production_machines m ON m.id = w.machine_id
+               LEFT JOIN production_defect_types d ON d.id = w.defect_type_id
+               ORDER BY w.production_date DESC, w.id DESC"""
+        ).fetchall()
+
+        plan_items = db.execute(
+            """SELECT i.id, i.work_day, pr.code AS product_code,
+                      pr.name AS product_name, s.name AS station_name
+               FROM production_plan_items i
+               JOIN production_plans p ON p.id = i.plan_id
+               JOIN production_products pr ON pr.id = i.product_id
+               LEFT JOIN production_stations s ON s.id = i.station_id
+               WHERE p.status = 'approved'
+               ORDER BY i.work_day DESC, i.id DESC"""
+        ).fetchall()
+        shifts_rows = db.execute(
+            "SELECT id, code, name FROM production_shifts WHERE is_active = 1 ORDER BY code"
+        ).fetchall()
+        employees_rows = db.execute(
+            "SELECT id, personnel_code, full_name FROM production_employees WHERE is_active = 1 ORDER BY full_name"
+        ).fetchall()
+        machines_rows = db.execute(
+            "SELECT id, code, name, station_id FROM production_machines WHERE is_active = 1 ORDER BY name"
+        ).fetchall()
+        defects_rows = db.execute(
+            "SELECT id, code, name FROM production_defect_types WHERE is_active = 1 ORDER BY code"
+        ).fetchall()
+
+        return render_template(
+            "production_waste.html",
+            rows=rows,
+            plan_items=plan_items,
+            shifts=shifts_rows,
+            employees=employees_rows,
+            machines=machines_rows,
+            defects=defects_rows,
+        )
+    finally:
+        db.close()
+
+
 @production_bp.route("/entries", methods=["GET", "POST"])
 @roles_required("admin")
 def production_entries():
