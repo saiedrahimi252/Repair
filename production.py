@@ -519,6 +519,33 @@ def plan_detail(plan_id):
         db.close()
 
 
+@production_bp.route("/stop-types", methods=["GET", "POST"])
+@roles_required("admin")
+def stop_types():
+    db = _db()
+    try:
+        if request.method == "POST":
+            code = request.form.get("code", "").strip()
+            name = request.form.get("name", "").strip()
+            category = request.form.get("category", "").strip() or None
+            counts = 1 if request.form.get("counts_as_unavailability") == "1" else 0
+            if not code or not name:
+                flash("کد و نام نوع توقف الزامی است.", "error")
+                return redirect(url_for("production.stop_types"))
+            try:
+                db.execute("INSERT INTO production_stop_types (code,name,category,counts_as_unavailability,is_active) VALUES (?,?,?,?,1)", (code,name,category,counts))
+                db.commit()
+                flash("نوع توقف با موفقیت ثبت شد.", "success")
+            except Exception as exc:
+                db.rollback()
+                flash(f"ثبت نوع توقف انجام نشد: {exc}", "error")
+            return redirect(url_for("production.stop_types"))
+        rows = db.execute("SELECT id,code,name,category,counts_as_unavailability,is_active FROM production_stop_types ORDER BY code").fetchall()
+        return render_template("production_stop_types.html", rows=rows)
+    finally:
+        db.close()
+
+
 @production_bp.route("/entries", methods=["GET", "POST"])
 @roles_required("admin")
 def production_entries():
