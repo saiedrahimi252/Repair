@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-3" dir="rtl">
+  <h2>محصولات تولید</h2>
+  <form method="post" class="row g-2 mb-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="col-md-3"><input class="form-control" name="code" placeholder="کد محصول" required></div>
+    <div class="col-md-4"><input class="form-control" name="name" placeholder="نام محصول" required></div>
+    <div class="col-md-2"><input class="form-control" name="unit" placeholder="واحد"></div>
+    <div class="col-md-2"><button class="btn btn-primary">ثبت محصول</button></div>
+  </form>
+  <table class="table table-striped"><thead><tr><th>کد</th><th>نام</th><th>واحد</th><th>فعال</th></tr></thead>
+  <tbody>{% for r in rows %}<tr><td>{{ r.code }}</td><td>{{ r.name }}</td><td>{{ r.unit or '' }}</td><td>{{ 'بله' if r.is_active else 'خیر' }}</td></tr>{% else %}<tr><td colspan="4">هنوز محصولی ثبت نشده است.</td></tr>{% endfor %}</tbody></table>
+</div>
+{% endblock %}
