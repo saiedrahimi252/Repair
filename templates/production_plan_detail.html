@@ -93,7 +93,16 @@
             <td>{{ (r.station_code ~ ' — ' ~ r.station_name) if r.station_id else '—' }}</td>
             <td>{{ r.target_qty }}</td>
             <td>{{ r.management_target_qty if r.management_target_qty is not none else '—' }}</td>
-            <td>{{ r.notes or '—' }}</td>
+            <td>
+              {{ r.notes or '—' }}
+              {% if plan.status == 'draft' %}
+              <form method="post" action="{{ url_for('production.delete_plan_item', plan_id=plan.id, item_id=r.id) }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-sm btn-outline-danger" type="submit"
+                        onclick="return confirm('آیا این آیتم حذف شود؟');">حذف</button>
+              </form>
+              {% endif %}
+            </td>
           </tr>
         {% else %}
           <tr><td colspan="6" class="text-muted">هنوز آیتمی ثبت نشده است.</td></tr>
