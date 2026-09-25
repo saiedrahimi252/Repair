@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>انواع عیب تولید</h2>
+    <a class="btn btn-secondary" href="{{ url_for('production.dashboard') }}">بازگشت به تولید</a>
+  </div>
+  <div class="card p-3 mb-4">
+    <h5>ثبت نوع عیب</h5>
+    <form method="post" class="row g-3">
+      <div class="col-md-3"><label class="form-label">کد</label><input name="code" class="form-control" required></div>
+      <div class="col-md-4"><label class="form-label">نام</label><input name="name" class="form-control" required></div>
+      <div class="col-md-5"><label class="form-label">توضیحات</label><input name="description" class="form-control"></div>
+      <div class="col-12"><button class="btn btn-primary" type="submit">ثبت نوع عیب</button></div>
+    </form>
+  </div>
+  <div class="card p-3">
+    <h5>لیست انواع عیب</h5>
+    <div class="table-responsive">
+      <table class="table table-striped table-sm">
+        <thead><tr><th>کد</th><th>نام</th><th>توضیحات</th><th>وضعیت</th></tr></thead>
+        <tbody>
+        {% for row in rows %}
+          <tr><td>{{ row.code }}</td><td>{{ row.name }}</td><td>{{ row.description or '' }}</td><td>{{ 'فعال' if row.is_active else 'غیرفعال' }}</td></tr>
+        {% else %}
+          <tr><td colspan="4" class="text-center text-muted">هنوز نوع عیبی ثبت نشده است.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
