@@ -706,6 +706,39 @@ def production_stops():
 
 
 
+
+@production_bp.route("/defect-types", methods=["GET", "POST"])
+@roles_required("admin")
+def defect_types():
+    db = _db()
+    try:
+        if request.method == "POST":
+            code = request.form.get("code", "").strip()
+            name = request.form.get("name", "").strip()
+            description = request.form.get("description", "").strip() or None
+            if not code or not name:
+                flash("کد و نام نوع عیب الزامی است.", "error")
+                return redirect(url_for("production.defect_types"))
+            try:
+                db.execute(
+                    "INSERT INTO production_defect_types (code,name,description,is_active) VALUES (?,?,?,1)",
+                    (code, name, description),
+                )
+                db.commit()
+                flash("نوع عیب با موفقیت ثبت شد.", "success")
+            except Exception as exc:
+                db.rollback()
+                flash(f"ثبت نوع عیب انجام نشد: {exc}", "error")
+            return redirect(url_for("production.defect_types"))
+
+        rows = db.execute(
+            "SELECT id,code,name,description,is_active FROM production_defect_types ORDER BY code"
+        ).fetchall()
+        return render_template("production_defect_types.html", rows=rows)
+    finally:
+        db.close()
+
+
 @production_bp.route("/waste", methods=["GET", "POST"])
 @roles_required("admin")
 def production_waste_entries():
