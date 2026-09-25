@@ -1194,6 +1194,22 @@ def production_control():
 
         waste_where = (" AND " + " AND ".join(waste_filters)) if waste_filters else ""
 
+        stop_filters = []
+        stop_params = []
+        if date_from:
+            stop_filters.append("st.production_date >= ?")
+            stop_params.append(date_from)
+        if date_to:
+            stop_filters.append("st.production_date <= ?")
+            stop_params.append(date_to)
+        if shift_id is not None:
+            stop_filters.append("st.shift_id = ?")
+            stop_params.append(shift_id)
+        if employee_id is not None:
+            stop_filters.append("st.employee_id = ?")
+            stop_params.append(employee_id)
+        stop_where = (" AND " + " AND ".join(stop_filters)) if stop_filters else ""
+
         rows = db.execute(
             f"""SELECT
                     i.id AS plan_item_id,
@@ -1224,7 +1240,20 @@ def production_control():
                         WHERE w.plan_item_id = i.id
                           AND w.record_type = 'rework'
                         {waste_where}
-                    ), 0) AS rework_qty
+                    ), 0) AS rework_qty,
+                    COALESCE((
+                        SELECT SUM(st.duration_minutes)
+                        FROM production_stops st
+                        WHERE st.plan_item_id = i.id
+                        {stop_where}
+                    ), 0) AS stop_minutes,
+                    COALESCE((
+                        SELECT SUM(CASE WHEN stt.counts_as_unavailability = 1 THEN st.duration_minutes ELSE 0 END)
+                        FROM production_stops st
+                        JOIN production_stop_types stt ON stt.id = st.stop_type_id
+                        WHERE st.plan_item_id = i.id
+                        {stop_where}
+                    ), 0) AS unavailability_minutes
                 FROM production_plan_items i
                 JOIN production_plans p ON p.id = i.plan_id
                 JOIN production_products pr ON pr.id = i.product_id
@@ -1235,7 +1264,7 @@ def production_control():
                  AND sp.is_active = 1
                 WHERE {where_items}
                 ORDER BY i.work_day, pr.name, s.name, i.id""",
-            production_params + waste_params + waste_params + item_params,
+            production_params + waste_params + waste_params + stop_params + stop_params + item_params,
         ).fetchall()
 
         # برای هر ردیف، شاخص‌های کنترلی را در Python محاسبه می‌کنیم تا
@@ -1249,6 +1278,8 @@ def production_control():
             "rework_qty": 0.0,
             "allowed_waste_qty": 0.0,
             "allowed_waste_defined": False,
+            "stop_minutes": 0.0,
+            "unavailability_minutes": 0.0,
         }
 
         for row in rows:
@@ -1257,6 +1288,8 @@ def production_control():
             actual = float(row["actual_production"] or 0)
             waste = float(row["waste_qty"] or 0)
             rework = float(row["rework_qty"] or 0)
+            stop_minutes = float(row["stop_minutes"] or 0)
+            unavailability_minutes = float(row["unavailability_minutes"] or 0)
             allowed_percent = row["allowed_waste_percent"]
             allowed_percent = float(allowed_percent) if allowed_percent is not None else None
             allowed_qty = (actual * allowed_percent / 100.0) if allowed_percent is not None else None
@@ -1270,6 +1303,8 @@ def production_control():
                 "actual_production": actual,
                 "waste_qty": waste,
                 "rework_qty": rework,
+                "stop_minutes": stop_minutes,
+                "unavailability_minutes": unavailability_minutes,
                 "production_variance": actual - target,
                 "allowed_waste_qty": allowed_qty,
                 "actual_waste_percent": actual_waste_percent,
@@ -1282,6 +1317,8 @@ def production_control():
             totals["actual_production"] += actual
             totals["waste_qty"] += waste
             totals["rework_qty"] += rework
+            totals["stop_minutes"] += stop_minutes
+            totals["unavailability_minutes"] += unavailability_minutes
             if allowed_qty is not None:
                 totals["allowed_waste_qty"] += allowed_qty
                 totals["allowed_waste_defined"] = True
