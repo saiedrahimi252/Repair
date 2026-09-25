@@ -345,3 +345,216 @@ def station_products():
         )
     finally:
         db.close()
+
+
+@production_bp.route("/plans", methods=["GET", "POST"])
+@roles_required("admin")
+def plans():
+    db = _db()
+    try:
+        if request.method == "POST":
+            plan_date = request.form.get("plan_date", "").strip()
+            notes = request.form.get("notes", "").strip() or None
+
+            if not plan_date:
+                flash("تاریخ برنامه الزامی است.", "error")
+                return redirect(url_for("production.plans"))
+
+            try:
+                db.execute(
+                    """INSERT INTO production_plans
+                       (plan_date,status,created_by,notes)
+                       VALUES (?, 'draft', ?, ?)""",
+                    (plan_date, session.get("user_id"), notes),
+                )
+                db.commit()
+                flash("برنامه تولید با موفقیت ایجاد شد.", "success")
+            except Exception as exc:
+                db.rollback()
+                flash(f"ایجاد برنامه انجام نشد: {exc}", "error")
+            return redirect(url_for("production.plans"))
+
+        rows = db.execute(
+            """SELECT p.id, p.plan_date, p.status, p.created_by, p.approved_by,
+                      p.created_at, p.approved_at, p.notes,
+                      u.full_name AS creator_name,
+                      au.full_name AS approver_name,
+                      COUNT(i.id) AS item_count
+               FROM production_plans p
+               LEFT JOIN users u ON u.id = p.created_by
+               LEFT JOIN users au ON au.id = p.approved_by
+               LEFT JOIN production_plan_items i ON i.plan_id = p.id
+               GROUP BY p.id, p.plan_date, p.status, p.created_by, p.approved_by,
+                        p.created_at, p.approved_at, p.notes,
+                        u.full_name, au.full_name
+               ORDER BY p.plan_date DESC, p.id DESC"""
+        ).fetchall()
+        return render_template("production_plans.html", rows=rows)
+    finally:
+        db.close()
+
+
+@production_bp.route("/plans/<int:plan_id>", methods=["GET", "POST"])
+@roles_required("admin")
+def plan_detail(plan_id):
+    db = _db()
+    try:
+        plan = db.execute(
+            """SELECT p.id, p.plan_date, p.status, p.created_by, p.approved_by,
+                      p.created_at, p.approved_at, p.notes,
+                      u.full_name AS creator_name,
+                      au.full_name AS approver_name
+               FROM production_plans p
+               LEFT JOIN users u ON u.id = p.created_by
+               LEFT JOIN users au ON au.id = p.approved_by
+               WHERE p.id = ?""",
+            (plan_id,),
+        ).fetchone()
+        if plan is None:
+            flash("برنامه پیدا نشد.", "error")
+            return redirect(url_for("production.plans"))
+
+        if request.method == "POST":
+            if plan["status"] != "draft":
+                flash("برنامه تأییدشده قابل تغییر نیست.", "error")
+                return redirect(url_for("production.plan_detail", plan_id=plan_id))
+
+            product_id_raw = request.form.get("product_id", "").strip()
+            station_id_raw = request.form.get("station_id", "").strip()
+            target_raw = request.form.get("target_qty", "").strip()
+            management_target_raw = request.form.get("management_target_qty", "").strip()
+            work_day = request.form.get("work_day", "").strip()
+            notes = request.form.get("notes", "").strip() or None
+
+            if not product_id_raw or not target_raw or not work_day:
+                flash("محصول، مقدار هدف و روز کاری الزامی است.", "error")
+                return redirect(url_for("production.plan_detail", plan_id=plan_id))
+
+            try:
+                product_id = int(product_id_raw)
+                station_id = int(station_id_raw) if station_id_raw else None
+                target_qty = float(target_raw)
+                management_target_qty = (
+                    float(management_target_raw) if management_target_raw else None
+                )
+
+                if target_qty <= 0:
+                    raise ValueError("مقدار هدف باید بیشتر از صفر باشد.")
+                if management_target_qty is not None and management_target_qty < 0:
+                    raise ValueError("هدف مدیریتی نمی‌تواند منفی باشد.")
+
+                product = db.execute(
+                    "SELECT id FROM production_products WHERE id = ? AND is_active = 1",
+                    (product_id,),
+                ).fetchone()
+                if product is None:
+                    raise ValueError("محصول انتخاب‌شده معتبر نیست.")
+
+                if station_id is not None:
+                    station = db.execute(
+                        "SELECT id FROM production_stations WHERE id = ? AND is_active = 1",
+                        (station_id,),
+                    ).fetchone()
+                    if station is None:
+                        raise ValueError("ایستگاه انتخاب‌شده معتبر نیست.")
+
+                    mapping = db.execute(
+                        """SELECT id FROM production_station_products
+                           WHERE station_id = ? AND product_id = ? AND is_active = 1""",
+                        (station_id, product_id),
+                    ).fetchone()
+                    if mapping is None:
+                        raise ValueError(
+                            "برای این محصول و ایستگاه هنوز رابطه فعال در «استاندارد محصول/ایستگاه» ثبت نشده است."
+                        )
+
+                db.execute(
+                    """INSERT INTO production_plan_items
+                       (plan_id,product_id,station_id,target_qty,management_target_qty,work_day,notes)
+                       VALUES (?,?,?,?,?,?,?)""",
+                    (
+                        plan_id,
+                        product_id,
+                        station_id,
+                        target_qty,
+                        management_target_qty,
+                        work_day,
+                        notes,
+                    ),
+                )
+                db.commit()
+                flash("آیتم برنامه با موفقیت اضافه شد.", "success")
+            except Exception as exc:
+                db.rollback()
+                flash(f"ثبت آیتم انجام نشد: {exc}", "error")
+            return redirect(url_for("production.plan_detail", plan_id=plan_id))
+
+        items = db.execute(
+            """SELECT i.id, i.product_id, i.station_id, i.target_qty,
+                      i.management_target_qty, i.work_day, i.notes,
+                      p.code AS product_code, p.name AS product_name,
+                      s.code AS station_code, s.name AS station_name
+               FROM production_plan_items i
+               JOIN production_products p ON p.id = i.product_id
+               LEFT JOIN production_stations s ON s.id = i.station_id
+               WHERE i.plan_id = ?
+               ORDER BY i.work_day, i.id""",
+            (plan_id,),
+        ).fetchall()
+        products_rows = db.execute(
+            "SELECT id, code, name FROM production_products WHERE is_active = 1 ORDER BY name"
+        ).fetchall()
+        stations_rows = db.execute(
+            "SELECT id, code, name FROM production_stations WHERE is_active = 1 ORDER BY name"
+        ).fetchall()
+        return render_template(
+            "production_plan_detail.html",
+            plan=plan,
+            items=items,
+            products=products_rows,
+            stations=stations_rows,
+        )
+    finally:
+        db.close()
+
+
+@production_bp.route("/plans/<int:plan_id>/approve", methods=["POST"])
+@roles_required("admin")
+def approve_plan(plan_id):
+    db = _db()
+    try:
+        plan = db.execute(
+            "SELECT id, status FROM production_plans WHERE id = ?",
+            (plan_id,),
+        ).fetchone()
+        if plan is None:
+            flash("برنامه پیدا نشد.", "error")
+            return redirect(url_for("production.plans"))
+
+        if plan["status"] != "draft":
+            flash("این برنامه قبلاً از حالت پیش‌نویس خارج شده است.", "error")
+            return redirect(url_for("production.plan_detail", plan_id=plan_id))
+
+        item_count = db.execute(
+            "SELECT COUNT(*) AS n FROM production_plan_items WHERE plan_id = ?",
+            (plan_id,),
+        ).fetchone()["n"]
+        if item_count == 0:
+            flash("برنامه بدون آیتم قابل تأیید نیست.", "error")
+            return redirect(url_for("production.plan_detail", plan_id=plan_id))
+
+        db.execute(
+            """UPDATE production_plans
+               SET status = 'approved', approved_by = ?, approved_at = SYSUTCDATETIME()
+               WHERE id = ? AND status = 'draft'""",
+            (session.get("user_id"), plan_id),
+        )
+        db.commit()
+        flash("برنامه با موفقیت تأیید شد و قفل گردید.", "success")
+        return redirect(url_for("production.plan_detail", plan_id=plan_id))
+    except Exception as exc:
+        db.rollback()
+        flash(f"تأیید برنامه انجام نشد: {exc}", "error")
+        return redirect(url_for("production.plan_detail", plan_id=plan_id))
+    finally:
+        db.close()
