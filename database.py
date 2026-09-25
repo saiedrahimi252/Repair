@@ -48,7 +48,7 @@ except ImportError:  # pragma: no cover
 # ============================================================== connection
 
 def _build_connection_string(database_override: str = None) -> str:
-    requested_driver = os.environ.get("MSSQL_DRIVER", "SQL Server Native Client 11.0").strip()
+    requested_driver = os.environ.get("MSSQL_DRIVER", "ODBC Driver 18 for SQL Server").strip()
     installed_drivers = pyodbc.drivers()
 
     # اگر .env یا تنظیمات قدیمی به درایوری اشاره کند که روی این ویندوز
@@ -56,9 +56,9 @@ def _build_connection_string(database_override: str = None) -> str:
     driver = requested_driver
     if driver not in installed_drivers:
         preferred = [
-            "SQL Server Native Client 11.0",
-            "ODBC Driver 17 for SQL Server",
             "ODBC Driver 18 for SQL Server",
+            "ODBC Driver 17 for SQL Server",
+            "SQL Server Native Client 11.0",
             "SQL Server",
         ]
         driver = next((name for name in preferred if name in installed_drivers), "")
@@ -68,11 +68,11 @@ def _build_connection_string(database_override: str = None) -> str:
             f"درایورهای نصب‌شده: {installed_drivers}"
         )
 
-    server = os.environ.get("MSSQL_SERVER", "localhost")
+    server = os.environ.get("MSSQL_SERVER", r"localhost\SQLEXPRESS")
     port = os.environ.get("MSSQL_PORT", "").strip()
     server_part = f"{server},{port}" if port else server
     database = database_override or os.environ.get("MSSQL_DATABASE", "repair")
-    encrypt = os.environ.get("MSSQL_ENCRYPT", "no")
+    encrypt = os.environ.get("MSSQL_ENCRYPT", "yes")
     trust_cert = os.environ.get("MSSQL_TRUST_SERVER_CERTIFICATE", "yes")
 
     parts = [
