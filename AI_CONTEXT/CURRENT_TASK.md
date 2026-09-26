@@ -193,3 +193,15 @@ production_products, production_suppliers, production_raw_materials, production_
 - Availability کل گزارش به‌صورت weighted calculation از مجموع `available_minutes / net_planned_minutes` محاسبه می‌شود تا یک روز کوتاه یا بلند وزن مساوی اشتباه نگیرد.
 - نسخه تکراری و بلااستفاده تابع `planned_time_report` از انتهای `production.py` حذف شد تا فقط یک پیاده‌سازی مرجع برای این route باقی بماند.
 - OEE هنوز عمداً محاسبه نمی‌شود؛ مرحله بعد باید قبل از پیاده‌سازی OEE، تعریف Performance، Quality و رفتار آنها در حالت‌های بدون تولید/بدون Cycle Time را تثبیت کند.
+
+
+### پیشرفت جدید — تثبیت تعریف Quality / Performance / OEE — 2026-09-26
+- فایل مرجع جدید `AI_CONTEXT/PRODUCTION_OEE_DEFINITIONS.md` ایجاد شد.
+- Quality فعلاً بر اساس `(production - waste - rework) / production` تعریف شده و در تولید صفر، قابل محاسبه نیست.
+- Performance فقط با Cycle Time استاندارد معتبر محاسبه خواهد شد؛ اولویت Cycle Time برای ترکیب محصول+ایستگاه و سپس مقدار پیش‌فرض ایستگاه است.
+- Performance سقف 100٪ دارد و در نبود Available Minutes یا Cycle Time معتبر، قابل محاسبه نیست.
+- OEE فقط وقتی نمایش داده می‌شود که Availability، Performance و Quality هر سه قابل محاسبه باشند.
+- برای تجمیع چند محصول/ایستگاه، یک Cycle Time دلخواه برای کل مجموعه انتخاب نمی‌شود؛ ابتدا باید در سطح محصول+ایستگاه محاسبه شود.
+- Rework هنوز از نظر فرآیند کسب‌وکار باید با نحوه ثبت تولید واقعی کنترل شود؛ تعریف فعلی برای گزارش است و داده موجود را تغییر نمی‌دهد.
+- Employee Break عمداً بخشی از Availability ماشین/ایستگاه نیست.
+- گام بعدی مناسب: تست محاسبات با داده‌های مصنوعی/واحد و سپس ساخت گزارش Performance/Quality و در نهایت OEE.
