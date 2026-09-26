@@ -198,7 +198,7 @@ def _calculate_performance(total_production, cycle_time_seconds, available_minut
     available = float(available_minutes or 0)
     if not all(math.isfinite(v) for v in (production, cycle, available)):
         return None
-    if production < 0 or cycle <= 0 or available <= 0:
+    if production <= 0 or cycle <= 0 or available <= 0:
         return None
     performance = production * cycle / (available * 60.0) * 100.0
     return min(max(performance, 0.0), 100.0)
