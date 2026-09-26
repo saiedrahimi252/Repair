@@ -2450,7 +2450,6 @@ def performance_quality_report():
                 JOIN production_products p ON p.id=i.product_id
                 WHERE i.work_day=?
                   AND i.station_id=?
-                  {product_filter}
                 GROUP BY i.product_id,p.code,p.name,i.work_day,i.station_id
             """, (
                 cal["work_date"], cal["shift_id"],
