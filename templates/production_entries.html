@@ -10,6 +10,7 @@
     <h5>ثبت رکورد جدید</h5>
     <p class="text-muted">فعلاً فقط برای آیتم‌های برنامه تأییدشده فعال است. ضایعات، دوباره‌کاری و توقف در مراحل بعدی به‌صورت رویدادهای جداگانه اضافه می‌شوند.</p>
     <form method="post" class="row g-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="col-md-6">
         <label class="form-label">آیتم برنامه</label>
         <select name="plan_item_id" class="form-select" required>
