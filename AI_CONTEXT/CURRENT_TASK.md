@@ -376,3 +376,11 @@ production_products, production_suppliers, production_raw_materials, production_
 - تعریف تکراری حذف شد و فقط یک `production_control` با route `/control` باقی ماند.
 - commit: `ed45dbce06057e445e4a241535b19991644bb519`.
 - این مرحله با بازبینی استاتیک انجام شد؛ اجرای واقعی برنامه/pytest هنوز انجام نشده است.
+
+
+### Hardening گزارش Control — 2026-09-26
+- فیلترهای `date_from/date_to` در `/production/control` اکنون با `_parse_iso_date()` اعتبارسنجی و به ISO نرمال می‌شوند؛ تاریخ نامعتبر یا بازه معکوس رد می‌شود.
+- شناسه‌های اختیاری محصول/ایستگاه/شیفت/پرسنل نیز باید عدد صحیح مثبت باشند.
+- این اصلاح با منطق اعتبارسنجی گزارش‌های OEE و Performance/Quality هم‌راستا شد.
+- commit: `8a0a6348e323cf63c9bf7bf127c97af7ecf6863b`.
+- اجرای واقعی pytest یا برنامه روی محیط runtime در این مرحله انجام نشده است.
