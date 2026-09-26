@@ -2419,9 +2419,7 @@ def performance_quality_report():
             }
 
             event_params = (cal["work_date"], cal["shift_id"], cal["station_id"])
-            product_filter = " AND i.product_id = ?" if product_id is not None else ""
-            product_params = (product_id,) if product_id is not None else ()
-            groups = db.execute(f"""
+            groups = db.execute("""
                 SELECT i.product_id,
                        p.code AS product_code,p.name AS product_name,
                        COALESCE(SUM(i.target_qty),0) AS target_qty,
@@ -2456,10 +2454,11 @@ def performance_quality_report():
                 cal["work_date"], cal["shift_id"],
                 cal["work_date"], cal["shift_id"],
                 cal["work_date"], cal["station_id"],
-                *product_params,
             )).fetchall()
 
             multiple_products = len(groups) > 1
+            if product_id is not None:
+                groups = [g for g in groups if g["product_id"] == product_id]
 
             for g in groups:
                 standard = db.execute("""
@@ -2653,18 +2652,17 @@ def oee_report():
             time_totals["net_planned_minutes"] += net_planned
             time_totals["available_minutes"] += available
 
-            product_filter = " AND i.product_id = ?" if product_id is not None else ""
-            product_params = (product_id,) if product_id is not None else ()
-            groups = db.execute(f"""
+            groups = db.execute("""
                 SELECT i.product_id,p.code AS product_code,p.name AS product_name
                 FROM production_plan_items i
                 JOIN production_plans pl ON pl.id=i.plan_id AND pl.status='approved'
-                JOIN production_products p ON p.id=i.product_id
-                WHERE i.work_day=? AND i.station_id=? {product_filter}
+                WHERE i.work_day=? AND i.station_id=?
                 GROUP BY i.product_id,p.code,p.name
-            """, (cal["work_date"],cal["station_id"],*product_params)).fetchall()
+            """, (cal["work_date"],cal["station_id"])).fetchall()
 
             multiple_products = len(groups) > 1
+            if product_id is not None:
+                groups = [g for g in groups if g["product_id"] == product_id]
 
             for g in groups:
                 # رویدادها مستقیماً بر اساس plan_item خودشان تجمیع می‌شوند.
