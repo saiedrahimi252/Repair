@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-3">
+  <h2>انواع وقفه پرسنلی</h2>
+  <div class="card p-3 mb-4">
+    <form method="post" class="row g-2">
+      <div class="col-md-2"><input name="code" class="form-control" placeholder="کد" required></div>
+      <div class="col-md-3"><input name="name" class="form-control" placeholder="نام وقفه" required></div>
+      <div class="col-md-3">
+        <select name="category" class="form-select" required>
+          <option value="break">استراحت</option><option value="personal">شخصی</option>
+          <option value="leave">مرخصی</option><option value="other">سایر</option>
+        </select>
+      </div>
+      <div class="col-md-2 form-check mt-2">
+        <input type="checkbox" name="counts_as_unavailability" value="1" class="form-check-input" id="unavail">
+        <label class="form-check-label" for="unavail">کاهش دسترسی</label>
+      </div>
+      <div class="col-md-2"><button class="btn btn-primary w-100">ثبت</button></div>
+    </form>
+  </div>
+  <table class="table table-bordered"><thead><tr><th>کد</th><th>نام</th><th>دسته</th><th>کاهش دسترسی</th><th>فعال</th></tr></thead><tbody>
+  {% for r in rows %}<tr><td>{{ r.code }}</td><td>{{ r.name }}</td><td>{{ r.category }}</td><td>{{ 'بله' if r.counts_as_unavailability else 'خیر' }}</td><td>{{ 'بله' if r.is_active else 'خیر' }}</td></tr>{% else %}<tr><td colspan="5" class="text-center">رکوردی نیست.</td></tr>{% endfor %}
+  </tbody></table>
+</div>
+{% endblock %}
