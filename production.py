@@ -1525,7 +1525,8 @@ def attendance():
                 return redirect(url_for("production.attendance"))
 
             try:
-                _parse_iso_date(attendance_date, "تاریخ حضور")
+                from datetime import date, datetime
+                parsed_attendance_date = _parse_iso_date(attendance_date, "تاریخ حضور")
                 shift_id = int(shift_id_raw)
                 employee_id = int(employee_id_raw)
 
@@ -1543,24 +1544,28 @@ def attendance():
                 if employee is None:
                     raise ValueError("پرسنل انتخاب‌شده معتبر نیست.")
 
-                if start_at and end_at:
-                    from datetime import datetime
+                start_dt = None
+                end_dt = None
+                if start_at:
                     start_dt = datetime.fromisoformat(start_at)
+                if end_at:
                     end_dt = datetime.fromisoformat(end_at)
-                    if end_dt < start_dt:
-                        raise ValueError("زمان پایان نمی‌تواند قبل از زمان شروع باشد.")
+                if (start_dt is None) != (end_dt is None):
+                    raise ValueError("زمان شروع و پایان حضور باید هر دو وارد شوند یا هر دو خالی باشند.")
+                if start_dt and end_dt and end_dt < start_dt:
+                    raise ValueError("زمان پایان نمی‌تواند قبل از زمان شروع باشد.")
 
                 db.execute(
                     """INSERT INTO production_attendance
                        (attendance_date,shift_id,employee_id,status,start_at,end_at,notes,created_by)
                        VALUES (?,?,?,?,?,?,?,?)""",
                     (
-                        attendance_date,
+                        parsed_attendance_date,
                         shift_id,
                         employee_id,
                         status,
-                        start_at,
-                        end_at,
+                        start_dt,
+                        end_dt,
                         notes,
                         session.get("user_id"),
                     ),
