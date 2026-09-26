@@ -2827,6 +2827,16 @@ def work_calendar():
             return redirect(url_for("production.work_calendar"))
         date_from=request.args.get("date_from","").strip(); date_to=request.args.get("date_to","").strip(); shift_filter=request.args.get("shift_id","").strip(); station_filter=request.args.get("station_id","").strip()
         conditions=[]; params=[]
+        try:
+            if date_from:
+                _parse_iso_date(date_from, "تاریخ شروع")
+            if date_to:
+                _parse_iso_date(date_to, "تاریخ پایان")
+            if date_from and date_to and date_from > date_to:
+                raise ValueError("تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد.")
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("production.work_calendar"))
         if date_from: conditions.append("c.work_date >= ?"); params.append(date_from)
         if date_to: conditions.append("c.work_date <= ?"); params.append(date_to)
         if shift_filter:
