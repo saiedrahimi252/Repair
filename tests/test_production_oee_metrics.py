@@ -65,3 +65,35 @@ def test_quality_rejects_negative_waste_or_rework():
 
 def test_quality_rejects_negative_production():
     assert _calculate_quality(-1, 0, 0) is None
+
+
+def test_subtract_intervals_removes_planned_overlap():
+    from production import _subtract_intervals
+    from datetime import datetime, timedelta
+
+    base = datetime(2026, 1, 1, 8, 0)
+    assert _subtract_intervals(
+        [(base, base + timedelta(minutes=60))],
+        [(base + timedelta(minutes=20), base + timedelta(minutes=40))],
+    ) == [
+        (base, base + timedelta(minutes=20)),
+        (base + timedelta(minutes=40), base + timedelta(minutes=60)),
+    ]
+
+
+def test_subtract_intervals_handles_multiple_blockers():
+    from production import _subtract_intervals
+    from datetime import datetime, timedelta
+
+    base = datetime(2026, 1, 1, 8, 0)
+    assert _subtract_intervals(
+        [(base, base + timedelta(minutes=60))],
+        [
+            (base + timedelta(minutes=10), base + timedelta(minutes=20)),
+            (base + timedelta(minutes=30), base + timedelta(minutes=45)),
+        ],
+    ) == [
+        (base, base + timedelta(minutes=10)),
+        (base + timedelta(minutes=20), base + timedelta(minutes=30)),
+        (base + timedelta(minutes=45), base + timedelta(minutes=60)),
+    ]
