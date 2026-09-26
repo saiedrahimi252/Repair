@@ -12,20 +12,20 @@
   </form></div>
   <div class="row g-3 mb-3">
     <div class="col-md-2"><div class="card p-3"><small>زمان برنامه‌ریزی‌شده</small><b>{{ "%.2f"|format(totals.planned_minutes) }} دقیقه</b></div></div>
-    <div class="col-md-2"><div class="card p-3"><small>توقف</small><b>{{ "%.2f"|format(totals.stop_minutes) }} دقیقه</b></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>توقف کل</small><b>{{ "%.2f"|format(totals.stop_minutes) }} دقیقه</b></div></div><div class="col-md-2"><div class="card p-3"><small>توقف برنامه‌ریزی‌شده</small><b>{{ "%.2f"|format(totals.planned_stop_minutes) }} دقیقه</b></div></div><div class="col-md-2"><div class="card p-3"><small>زمان برنامه‌ریزی خالص</small><b>{{ "%.2f"|format(totals.net_planned_minutes) }} دقیقه</b></div></div>
     <div class="col-md-2"><div class="card p-3"><small>عدم دسترسی ثبت‌شده</small><b>{{ "%.2f"|format(totals.unavailability_minutes) }} دقیقه</b></div></div>
     <div class="col-md-2"><div class="card p-3"><small>تولید واقعی</small><b>{{ "%.2f"|format(totals.actual_production) }}</b></div></div>
     <div class="col-md-2"><div class="card p-3"><small>ضایعات</small><b>{{ "%.2f"|format(totals.waste_qty) }}</b></div></div>
     <div class="col-md-2"><div class="card p-3"><small>دوباره‌کاری</small><b>{{ "%.2f"|format(totals.rework_qty) }}</b></div></div>
   </div>
   <div class="table-responsive"><table class="table table-bordered table-striped">
-    <thead><tr><th>تاریخ</th><th>شیفت</th><th>ایستگاه</th><th>وضعیت</th><th>زمان برنامه‌ریزی</th><th>توقف</th><th>عدم دسترسی</th><th>تولید</th><th>ضایعات</th><th>دوباره‌کاری</th></tr></thead>
+    <thead><tr><th>تاریخ</th><th>شیفت</th><th>ایستگاه</th><th>وضعیت</th><th>زمان برنامه‌ریزی</th><th>توقف برنامه‌ریزی‌شده</th><th>زمان برنامه‌ریزی خالص</th><th>توقف کل</th><th>عدم دسترسی</th><th>تولید</th><th>ضایعات</th><th>دوباره‌کاری</th></tr></thead>
     <tbody>{% for row in rows %}<tr>
       <td>{{ row.work_date }}</td><td>{{ row.shift_code }} - {{ row.shift_name }}</td><td>{{ row.station_code }} - {{ row.station_name }}</td>
       <td>{% if row.is_working %}کاری{% else %}غیرکاری{% endif %}</td>
-      <td>{{ "%.2f"|format(row.planned_minutes) }}</td><td>{{ "%.2f"|format(row.stop_minutes) }}</td><td>{{ "%.2f"|format(row.unavailability_minutes) }}</td>
+      <td>{{ "%.2f"|format(row.planned_minutes) }}</td><td>{{ "%.2f"|format(row.planned_stop_minutes) }}</td><td>{{ "%.2f"|format(row.net_planned_minutes) }}</td><td>{{ "%.2f"|format(row.stop_minutes) }}</td><td>{{ "%.2f"|format(row.unavailability_minutes) }}</td>
       <td>{{ "%.2f"|format(row.actual_production) }}</td><td>{{ "%.2f"|format(row.waste_qty) }}</td><td>{{ "%.2f"|format(row.rework_qty) }}</td>
-    </tr>{% else %}<tr><td colspan="10" class="text-center">رکوردی برای این فیلتر وجود ندارد.</td></tr>{% endfor %}</tbody>
+    </tr>{% else %}<tr><td colspan="12" class="text-center">رکوردی برای این فیلتر وجود ندارد.</td></tr>{% endfor %}</tbody>
   </table></div>
 </div>
 {% endblock %}
