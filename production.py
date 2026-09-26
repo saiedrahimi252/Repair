@@ -626,7 +626,7 @@ def production_stops():
                     raise ValueError("مدت توقف معتبر نیست.")
 
                 shift = db.execute(
-                    "SELECT id FROM production_shifts WHERE id = ? AND is_active = 1",
+                    "SELECT id,start_time,end_time,crosses_midnight FROM production_shifts WHERE id = ? AND is_active = 1",
                     (shift_id,),
                 ).fetchone()
                 if shift is None:
@@ -638,6 +638,36 @@ def production_stops():
                 ).fetchone()
                 if stop_type is None:
                     raise ValueError("نوع توقف انتخاب‌شده معتبر نیست.")
+
+                # توقف باید داخل بازه همان شیفت باشد؛ این کار از ورود زمان خارج از شیفت به گزارش جلوگیری می‌کند.
+                from datetime import date, time, timedelta
+                shift_start = datetime.combine(start_at.date(), shift["start_time"])
+                shift_end = datetime.combine(start_at.date(), shift["end_time"])
+                if shift["crosses_midnight"] and shift_end <= shift_start:
+                    shift_end += timedelta(days=1)
+                elif shift_end < shift_start:
+                    shift_end += timedelta(days=1)
+                if start_at < shift_start or end_at > shift_end:
+                    raise ValueError("زمان توقف باید کاملاً داخل بازه شیفت انتخاب‌شده باشد.")
+
+
+                # از هم‌پوشانی توقف‌ها جلوگیری می‌کنیم تا یک دقیقه دوبار محاسبه نشود.
+                overlap_sql = """
+                    SELECT TOP 1 id FROM production_stops
+                    WHERE production_date=? AND shift_id=?
+                      AND start_at < ? AND end_at > ?
+                """
+                overlap_params = [production_date, shift_id, end_at, start_at]
+                if machine_id is not None:
+                    overlap_sql += " AND machine_id = ?"
+                    overlap_params.append(machine_id)
+                elif item is not None:
+                    overlap_sql += " AND machine_id IS NULL AND plan_item_id = ?"
+                    overlap_params.append(item["id"])
+                else:
+                    overlap_sql += " AND machine_id IS NULL AND plan_item_id IS NULL"
+                if db.execute(overlap_sql, tuple(overlap_params)).fetchone() is not None:
+                    raise ValueError("این بازه زمانی با یک توقف ثبت‌شده دیگر هم‌پوشانی دارد.")
 
                 if plan_item_id is not None:
                     item = db.execute(
