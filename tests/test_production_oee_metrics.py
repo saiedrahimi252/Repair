@@ -190,3 +190,29 @@ def test_stop_minutes_include_after_midnight_inside_cross_midnight_shift():
     )
     assert result["unavailability_minutes"] == 90.0
     assert result["stop_minutes"] == 90.0
+
+
+
+def test_merge_intervals_deduplicates_overlapping_machine_stops():
+    from datetime import datetime, timedelta
+    from production import _merged_interval_minutes
+
+    base = datetime(2026, 9, 26, 8, 0)
+    # Machine A: 08:00-09:00, Machine B: 08:30-09:30.
+    # Station downtime must count the union once: 90 minutes.
+    assert _merged_interval_minutes([
+        (base, base + timedelta(minutes=60)),
+        (base + timedelta(minutes=30), base + timedelta(minutes=90)),
+    ]) == 90.0
+
+
+def test_merge_intervals_deduplicates_station_wide_and_machine_stop():
+    from datetime import datetime, timedelta
+    from production import _merged_interval_minutes
+
+    base = datetime(2026, 9, 26, 10, 0)
+    # Station-wide stop overlaps a machine-specific stop.
+    assert _merged_interval_minutes([
+        (base, base + timedelta(minutes=45)),
+        (base + timedelta(minutes=15), base + timedelta(minutes=30)),
+    ]) == 45.0
