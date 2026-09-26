@@ -2441,6 +2441,7 @@ def performance_quality_report():
                        COALESCE((SELECT SUM(CASE WHEN w.record_type='rework' THEN w.quantity ELSE 0 END)
                                  FROM production_waste_entries w
                                  JOIN production_plan_items wi ON wi.id=w.plan_item_id
+                                 JOIN production_plans wr ON wr.id=wi.plan_id AND wr.status='approved'
                                  WHERE wi.work_day=i.work_day AND wi.station_id=i.station_id
                                    AND wi.product_id=i.product_id
                                    AND w.production_date=? AND w.shift_id=?),0) AS rework_qty
