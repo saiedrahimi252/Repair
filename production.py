@@ -13,45 +13,6 @@ def _db():
     return get_connection(session.get("company_db") or "repair")
 
 
-
-
-
-def _ensure_work_calendar_table(db):
-    """تقویم کاری تولید: زمان برنامه‌ریزی‌شده را مستقل از حضور و توقف نگه می‌دارد."""
-    db.execute("""
-        IF OBJECT_ID('dbo.production_work_calendar', 'U') IS NULL
-        BEGIN
-            CREATE TABLE production_work_calendar (
-                id INT IDENTITY(1,1) PRIMARY KEY,
-                work_date DATE NOT NULL,
-                shift_id INT NOT NULL,
-                station_id INT NOT NULL,
-                is_working BIT NOT NULL DEFAULT 1,
-                planned_minutes FLOAT NOT NULL DEFAULT 0,
-                notes NVARCHAR(MAX) NULL,
-                created_by INT NULL,
-                created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-                CONSTRAINT CK_prod_calendar_minutes CHECK (planned_minutes >= 0 AND planned_minutes <= 1440),
-                CONSTRAINT UQ_prod_calendar_date_shift_station UNIQUE (work_date, shift_id, station_id),
-                CONSTRAINT FK_prod_calendar_shift FOREIGN KEY (shift_id) REFERENCES production_shifts(id),
-                CONSTRAINT FK_prod_calendar_station FOREIGN KEY (station_id) REFERENCES production_stations(id)
-            )
-        END
-    """)
-    db.commit()
-
-
-def _shift_minutes(start_time, end_time, crosses_midnight):
-    from datetime import datetime, date, timedelta
-    start = datetime.combine(date.today(), start_time)
-    end = datetime.combine(date.today(), end_time)
-    if crosses_midnight and end <= start:
-        end += timedelta(days=1)
-    elif end < start:
-        end += timedelta(days=1)
-    return max(0.0, (end - start).total_seconds() / 60.0)
-
-
 @production_bp.route("/")
 @roles_required("admin")
 def dashboard():
@@ -2037,99 +1998,36 @@ def production_control():
             "SELECT id, code, name FROM production_products WHERE is_active = 1 ORDER BY name"
         ).fetchall()
         stations_rows = db.execute(
+            "SELECT id, code, name FROM production_stations WHERE is_active = 1 ORDER BY name"
+        ).fetchall()
+        shifts_rows = db.execute(
+            "SELECT id, code, name FROM production_shifts WHERE is_active = 1 ORDER BY code"
+        ).fetchall()
+        employees_rows = db.execute(
+            "SELECT id, personnel_code, full_name FROM production_employees WHERE is_active = 1 ORDER BY full_name"
+        ).fetchall()
 
-@production_bp.route("/work-calendar", methods=["GET", "POST"])
-@roles_required("admin")
-def work_calendar():
-    """ثبت زمان برنامه‌ریزی‌شده هر شیفت و ایستگاه؛ پایه محاسبه Availability در آینده."""
-    db = _db()
-    try:
-        _ensure_work_calendar_table(db)
-        if request.method == "POST":
-            work_date = request.form.get("work_date", "").strip()
-            shift_id_raw = request.form.get("shift_id", "").strip()
-            station_id_raw = request.form.get("station_id", "").strip()
-            is_working = 1 if request.form.get("is_working") == "1" else 0
-            planned_raw = request.form.get("planned_minutes", "").strip()
-            notes = request.form.get("notes", "").strip() or None
-            if not work_date or not shift_id_raw or not station_id_raw:
-                flash("تاریخ، شیفت و ایستگاه الزامی است.", "error")
-                return redirect(url_for("production.work_calendar"))
-            try:
-                shift_id = int(shift_id_raw)
-                station_id = int(station_id_raw)
-                shift = db.execute(
-                    "SELECT id,start_time,end_time,crosses_midnight FROM production_shifts WHERE id=? AND is_active=1",
-                    (shift_id,),
-                ).fetchone()
-                station = db.execute(
-                    "SELECT id FROM production_stations WHERE id=? AND is_active=1",
-                    (station_id,),
-                ).fetchone()
-                if shift is None or station is None:
-                    raise ValueError("شیفت یا ایستگاه انتخاب‌شده معتبر نیست.")
-                if planned_raw:
-                    planned_minutes = float(planned_raw)
-                else:
-                    planned_minutes = _shift_minutes(shift["start_time"], shift["end_time"], shift["crosses_midnight"]) if is_working else 0.0
-                if not math.isfinite(planned_minutes) or planned_minutes < 0 or planned_minutes > 1440:
-                    raise ValueError("زمان برنامه‌ریزی‌شده باید بین صفر تا 1440 دقیقه باشد.")
-                if is_working and planned_minutes <= 0:
-                    raise ValueError("برای روز کاری، زمان برنامه‌ریزی‌شده باید بیشتر از صفر باشد.")
-                existing = db.execute(
-                    "SELECT id FROM production_work_calendar WHERE work_date=? AND shift_id=? AND station_id=?",
-                    (work_date, shift_id, station_id),
-                ).fetchone()
-                if existing:
-                    db.execute(
-                        """UPDATE production_work_calendar
-                           SET is_working=?, planned_minutes=?, notes=?, created_by=?, created_at=SYSUTCDATETIME()
-                           WHERE id=?""",
-                        (is_working, planned_minutes, notes, session.get("user_id"), existing["id"]),
-                    )
-                    message = "تقویم کاری به‌روزرسانی شد."
-                else:
-                    db.execute(
-                        """INSERT INTO production_work_calendar
-                           (work_date,shift_id,station_id,is_working,planned_minutes,notes,created_by)
-                           VALUES (?,?,?,?,?,?,?)""",
-                        (work_date, shift_id, station_id, is_working, planned_minutes, notes, session.get("user_id")),
-                    )
-                    message = "زمان برنامه‌ریزی‌شده ثبت شد."
-                db.commit()
-                flash(message, "success")
-            except Exception as exc:
-                db.rollback()
-                flash(f"ثبت تقویم کاری انجام نشد: {exc}", "error")
-            return redirect(url_for("production.work_calendar"))
+        filters = {
+            "date_from": date_from,
+            "date_to": date_to,
+            "product_id": product_id_raw,
+            "station_id": station_id_raw,
+            "shift_id": shift_id_raw,
+            "employee_id": employee_id_raw,
+        }
 
-        date_from = request.args.get("date_from", "").strip()
-        date_to = request.args.get("date_to", "").strip()
-        shift_filter = request.args.get("shift_id", "").strip()
-        station_filter = request.args.get("station_id", "").strip()
-        conditions, params = [], []
-        if date_from:
-            conditions.append("c.work_date >= ?"); params.append(date_from)
-        if date_to:
-            conditions.append("c.work_date <= ?"); params.append(date_to)
-        if shift_filter:
-            conditions.append("c.shift_id = ?"); params.append(int(shift_filter))
-        if station_filter:
-            conditions.append("c.station_id = ?"); params.append(int(station_filter))
-        where_sql = ("WHERE " + " AND ".join(conditions)) if conditions else ""
-        rows = db.execute(f"""
-            SELECT c.id,c.work_date,c.is_working,c.planned_minutes,c.notes,
-                   sh.code AS shift_code,sh.name AS shift_name,
-                   s.code AS station_code,s.name AS station_name
-            FROM production_work_calendar c
-            JOIN production_shifts sh ON sh.id=c.shift_id
-            JOIN production_stations s ON s.id=c.station_id
-            {where_sql}
-            ORDER BY c.work_date DESC,sh.code,s.name,c.id DESC
-        """, params).fetchall()
-        shifts_rows = db.execute("SELECT id,code,name,start_time,end_time,crosses_midnight FROM production_shifts WHERE is_active=1 ORDER BY code").fetchall()
-        stations_rows = db.execute("SELECT id,code,name FROM production_stations WHERE is_active=1 ORDER BY name").fetchall()
-        return render_template("production_work_calendar.html", rows=rows, shifts=shifts_rows, stations=stations_rows,
-                               filters={"date_from":date_from,"date_to":date_to,"shift_id":shift_filter,"station_id":station_filter})
+        return render_template(
+            "production_control.html",
+            rows=control_rows,
+            totals=totals,
+            filters=filters,
+            products=products_rows,
+            stations=stations_rows,
+            shifts=shifts_rows,
+            employees=employees_rows,
+        )
+    except Exception as exc:
+        flash(f"گزارش کنترل تولید ایجاد نشد: {exc}", "error")
+        return redirect(url_for("production.dashboard"))
     finally:
         db.close()
