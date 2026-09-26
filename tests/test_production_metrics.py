@@ -65,6 +65,11 @@ def test_performance_calculation_and_cap():
     assert _calculate_performance(120, 60, 60) == 100.0
 
 
+def test_performance_rejects_non_positive_production():
+    assert _calculate_performance(0, 60, 60) is None
+    assert _calculate_performance(-1, 60, 60) is None
+
+
 def test_performance_rejects_invalid_cycle_or_available_time():
     assert _calculate_performance(10, 0, 60) is None
     assert _calculate_performance(10, -1, 60) is None
