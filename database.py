@@ -954,6 +954,7 @@ def get_connection(database_name: str = None) -> Connection:
     _ensure_schema(conn)
     _migrate_status_column(conn)
     _migrate_request_number(conn)
+    _migrate_production_stop_type_columns(conn)
     _migrate_missing_defaults(conn)
     return conn
 
