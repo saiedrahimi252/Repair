@@ -716,6 +716,31 @@ _TABLES = {
         CONSTRAINT FK_prod_attendance_shift FOREIGN KEY ([shift_id]) REFERENCES production_shifts([id]),
         CONSTRAINT FK_prod_attendance_employee FOREIGN KEY ([employee_id]) REFERENCES production_employees([id])
     """,
+    "production_employee_break_types": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [code] NVARCHAR(50) NOT NULL UNIQUE,
+        [name] NVARCHAR(100) NOT NULL,
+        [category] NVARCHAR(30) NOT NULL,
+        [counts_as_unavailability] BIT NOT NULL DEFAULT 0,
+        [is_active] BIT NOT NULL DEFAULT 1,
+        [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT CK_prod_break_type_category CHECK ([category] IN ('break','personal','leave','other'))
+    """,
+    "production_employee_breaks": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [attendance_id] INT NOT NULL,
+        [break_type_id] INT NOT NULL,
+        [start_at] DATETIME2 NOT NULL,
+        [end_at] DATETIME2 NOT NULL,
+        [duration_minutes] FLOAT NOT NULL,
+        [notes] NVARCHAR(MAX),
+        [created_by] INT NULL,
+        [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT CK_prod_employee_break_duration CHECK ([duration_minutes] > 0),
+        CONSTRAINT CK_prod_employee_break_time CHECK ([end_at] > [start_at]),
+        CONSTRAINT FK_prod_employee_break_attendance FOREIGN KEY ([attendance_id]) REFERENCES production_attendance([id]),
+        CONSTRAINT FK_prod_employee_break_type FOREIGN KEY ([break_type_id]) REFERENCES production_employee_break_types([id])
+    """,
     "production_plans": """
         [id] INT IDENTITY(1,1) PRIMARY KEY,
         [plan_date] DATE NOT NULL,
@@ -828,6 +853,7 @@ _TABLE_ORDER = [
     "machine_passport", "machine_product_usage", "machine_passport_meta",
     "production_products", "production_suppliers", "production_raw_materials", "production_stations",
     "production_machines", "production_station_products", "production_employees", "production_shifts", "production_attendance",
+    "production_employee_break_types", "production_employee_breaks",
     "production_plans", "production_plan_items", "production_stop_types", "production_defect_types",
     "production_entries", "production_stops", "production_waste_entries",
 ]
