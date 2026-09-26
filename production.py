@@ -129,6 +129,46 @@ def _stop_minutes_for_calendar_row(db, work_date, shift_id, station_id, planned_
     }
 
 
+def _calculate_quality(total_production, waste_qty, rework_qty):
+    """Quality درصدی؛ در تولید صفر قابل محاسبه نیست."""
+    production = float(total_production or 0)
+    waste = float(waste_qty or 0)
+    rework = float(rework_qty or 0)
+    if not all(math.isfinite(v) for v in (production, waste, rework)) or production <= 0:
+        return None
+    good_qty = max(production - waste - rework, 0.0)
+    return min(max(good_qty / production * 100.0, 0.0), 100.0)
+
+
+def _calculate_performance(total_production, cycle_time_seconds, available_minutes):
+    """Performance درصدی؛ بدون Cycle Time یا زمان قابل‌استفاده معتبر، قابل محاسبه نیست."""
+    production = float(total_production or 0)
+    cycle = float(cycle_time_seconds or 0)
+    available = float(available_minutes or 0)
+    if not all(math.isfinite(v) for v in (production, cycle, available)):
+        return None
+    if production < 0 or cycle <= 0 or available <= 0:
+        return None
+    performance = production * cycle / (available * 60.0) * 100.0
+    return min(max(performance, 0.0), 100.0)
+
+
+def _calculate_oee(availability_percent, performance_percent, quality_percent):
+    """OEE فقط وقتی محاسبه می‌شود که هر سه مؤلفه معتبر باشند."""
+    values = (availability_percent, performance_percent, quality_percent)
+    if any(v is None for v in values):
+        return None
+    values = tuple(float(v) for v in values)
+    if not all(math.isfinite(v) for v in values):
+        return None
+    if any(v < 0 for v in values):
+        return None
+    return min(
+        max(values[0] * values[1] * values[2] / 10000.0, 0.0),
+        100.0,
+    )
+
+
 def _shift_minutes(start_time, end_time, crosses_midnight):
     from datetime import datetime, date, timedelta
     start = datetime.combine(date.today(), start_time)
