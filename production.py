@@ -1520,6 +1520,7 @@ def attendance():
                 return redirect(url_for("production.attendance"))
 
             try:
+                _parse_iso_date(attendance_date, "تاریخ حضور")
                 shift_id = int(shift_id_raw)
                 employee_id = int(employee_id_raw)
 
