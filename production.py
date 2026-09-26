@@ -112,12 +112,12 @@ def _stop_minutes_for_calendar_row(db, work_date, shift_id, station_id, planned_
             "unavailability_minutes": 0.0,
         }
 
-    shift_start = datetime.combine(work_date, shift["start_time"])
-    shift_end = datetime.combine(work_date, shift["end_time"])
-    if shift["crosses_midnight"] and shift_end <= shift_start:
-        shift_end += timedelta(days=1)
-    elif shift_end < shift_start:
-        shift_end += timedelta(days=1)
+    shift_start, shift_end = _shift_window(
+        work_date,
+        shift["start_time"],
+        shift["end_time"],
+        shift["crosses_midnight"],
+    )
 
     window_end = min(
         shift_end,
@@ -220,14 +220,22 @@ def _calculate_oee(availability_percent, performance_percent, quality_percent):
     )
 
 
+def _shift_window(work_date, start_time, end_time, crosses_midnight):
+    """بازه واقعی شیفت را با «تاریخ شروع شیفت» می‌سازد."""
+    from datetime import datetime, timedelta
+
+    shift_start = datetime.combine(work_date, start_time)
+    shift_end = datetime.combine(work_date, end_time)
+    if crosses_midnight and shift_end <= shift_start:
+        shift_end += timedelta(days=1)
+    elif shift_end < shift_start:
+        shift_end += timedelta(days=1)
+    return shift_start, shift_end
+
+
 def _shift_minutes(start_time, end_time, crosses_midnight):
-    from datetime import datetime, date, timedelta
-    start = datetime.combine(date.today(), start_time)
-    end = datetime.combine(date.today(), end_time)
-    if crosses_midnight and end <= start:
-        end += timedelta(days=1)
-    elif end < start:
-        end += timedelta(days=1)
+    from datetime import date
+    start, end = _shift_window(date.today(), start_time, end_time, crosses_midnight)
     return max(0.0, (end - start).total_seconds() / 60.0)
 
 
@@ -818,16 +826,18 @@ def production_stops():
                 if stop_type is None:
                     raise ValueError("نوع توقف انتخاب‌شده معتبر نیست.")
 
-                # توقف باید داخل بازه همان شیفت باشد؛ این کار از ورود زمان خارج از شیفت به گزارش جلوگیری می‌کند.
-                from datetime import date, time, timedelta
-                shift_start = datetime.combine(start_at.date(), shift["start_time"])
-                shift_end = datetime.combine(start_at.date(), shift["end_time"])
-                if shift["crosses_midnight"] and shift_end <= shift_start:
-                    shift_end += timedelta(days=1)
-                elif shift_end < shift_start:
-                    shift_end += timedelta(days=1)
+                # production_date «تاریخ شروع شیفت» است؛ برای شیفت عبوری از نیمه‌شب
+                # رویدادهای بعد از نیمه‌شب همچنان متعلق به همین production_date هستند.
+                shift_start, shift_end = _shift_window(
+                    datetime.fromisoformat(production_date).date(),
+                    shift["start_time"],
+                    shift["end_time"],
+                    shift["crosses_midnight"],
+                )
                 if start_at < shift_start or end_at > shift_end:
-                    raise ValueError("زمان توقف باید کاملاً داخل بازه شیفت انتخاب‌شده باشد.")
+                    raise ValueError(
+                        "زمان توقف باید کاملاً داخل بازه شیفت انتخاب‌شده و تاریخ شروع همان شیفت باشد."
+                    )
 
 
                 if plan_item_id is not None:
@@ -842,6 +852,10 @@ def production_stops():
                         raise ValueError("آیتم برنامه پیدا نشد.")
                     if item["plan_status"] != "approved":
                         raise ValueError("ثبت توقف برای آیتم برنامه فقط پس از تأیید برنامه مجاز است.")
+                    if str(item["work_day"]) != production_date:
+                        raise ValueError(
+                            "تاریخ توقف باید با روز کاری آیتم برنامه یکسان باشد؛ در شیفت شب، تاریخ شروع شیفت ثبت می‌شود."
+                        )
                 else:
                     item = None
 
@@ -1042,6 +1056,10 @@ def production_waste_entries():
                         raise ValueError("آیتم برنامه پیدا نشد.")
                     if item["plan_status"] != "approved":
                         raise ValueError("ثبت ضایعات/دوباره‌کاری فقط برای برنامه تأییدشده مجاز است.")
+                    if str(item["work_day"]) != production_date:
+                        raise ValueError(
+                            "تاریخ ضایعات/دوباره‌کاری باید با روز کاری آیتم برنامه یکسان باشد؛ در شیفت شب، تاریخ شروع شیفت ثبت می‌شود."
+                        )
 
                 if defect_type_id is not None:
                     defect = db.execute(
@@ -1183,6 +1201,10 @@ def production_entries():
                     raise ValueError("آیتم برنامه پیدا نشد.")
                 if item["plan_status"] != "approved":
                     raise ValueError("ثبت تولید فقط برای برنامه تأییدشده مجاز است.")
+                if str(item["work_day"]) != production_date:
+                    raise ValueError(
+                        "تاریخ تولید باید با روز کاری آیتم برنامه یکسان باشد؛ در شیفت شب، تاریخ شروع شیفت ثبت می‌شود."
+                    )
 
                 shift = db.execute(
                     "SELECT id FROM production_shifts WHERE id = ? AND is_active = 1",
