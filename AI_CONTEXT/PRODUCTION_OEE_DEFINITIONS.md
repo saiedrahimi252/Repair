@@ -90,3 +90,7 @@ OEE فقط وقتی قابل محاسبه است که هر سه مؤلفه قا�
 
 ## 2026-09-26 — Mixed products in one station/shift
 When more than one product is present for the same work date + shift + station, the station's Available Minutes are shared time and cannot safely be assigned in full to every product row. Until an explicit time-allocation rule is approved, Availability may be shown at the shared station level, but Performance and OEE for those product rows are intentionally not calculated. This prevents double allocation of the same available minutes and avoids understated Performance caused by reusing the full station time for each product.
+
+
+## 2026-09-26 — Multiple machines per station
+Current station Availability is conservative: a machine-specific stop is included in the station stop union when that machine belongs to the station. The model does not yet know whether other machines can continue production in parallel or whether the stopped machine is a required bottleneck. Therefore this behavior is documented as a limitation rather than silently assuming parallel capacity. A future capacity/line-topology model should replace this assumption before using machine-level stops for high-precision station OEE.
