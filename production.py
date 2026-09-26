@@ -2281,7 +2281,8 @@ def planned_time_report():
         totals = {
             "planned_minutes": 0.0, "planned_stop_minutes": 0.0,
             "net_planned_minutes": 0.0, "stop_minutes": 0.0,
-            "unavailability_minutes": 0.0, "actual_production": 0.0,
+            "unavailability_minutes": 0.0, "available_minutes": 0.0,
+            "actual_production": 0.0,
             "waste_qty": 0.0, "rework_qty": 0.0
         }
 
@@ -2321,6 +2322,7 @@ def planned_time_report():
                 "net_planned_minutes": max(0.0, planned - stop_info["planned_stop_minutes"]),
                 "stop_minutes": stop_info["stop_minutes"],
                 "unavailability_minutes": stop_info["unavailability_minutes"],
+                "available_minutes": max(0.0, planned - stop_info["planned_stop_minutes"] - stop_info["unavailability_minutes"]),
                 "actual_production": float(prod or 0),
                 "waste_qty": float(waste["waste_qty"] or 0),
                 "rework_qty": float(waste["rework_qty"] or 0),
