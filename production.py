@@ -1939,19 +1939,8 @@ def production_control():
                           AND w.record_type = 'rework'
                         {waste_where}
                     ), 0) AS rework_qty,
-                    COALESCE((
-                        SELECT SUM(st.duration_minutes)
-                        FROM production_stops st
-                        WHERE st.plan_item_id = i.id
-                        {stop_where}
-                    ), 0) AS stop_minutes,
-                    COALESCE((
-                        SELECT SUM(CASE WHEN stt.counts_as_unavailability = 1 THEN st.duration_minutes ELSE 0 END)
-                        FROM production_stops st
-                        JOIN production_stop_types stt ON stt.id = st.stop_type_id
-                        WHERE st.plan_item_id = i.id
-                        {stop_where}
-                    ), 0) AS unavailability_minutes
+                    0.0 AS stop_minutes,
+                    0.0 AS unavailability_minutes
                 FROM production_plan_items i
                 JOIN production_plans p ON p.id = i.plan_id
                 JOIN production_products pr ON pr.id = i.product_id
@@ -1962,8 +1951,38 @@ def production_control():
                  AND sp.is_active = 1
                 WHERE {where_items}
                 ORDER BY i.work_day, pr.name, s.name, i.id""",
-            production_params + waste_params + waste_params + stop_params + stop_params + item_params,
+            production_params + waste_params + waste_params + item_params,
         ).fetchall()
+
+        # توقف‌ها باید مثل OEE/Planned-Time با اتحاد بازه‌ها محاسبه شوند؛
+        # SUM(duration_minutes) روی توقف‌های هم‌پوشان باعث دوباره‌شماری می‌شود.
+        stop_by_item = {}
+        if rows:
+            item_ids = [int(row["plan_item_id"]) for row in rows]
+            placeholders = ",".join("?" for _ in item_ids)
+            stop_query = f"""
+                SELECT st.plan_item_id, st.start_at, st.end_at,
+                       stt.counts_as_unavailability
+                FROM production_stops st
+                JOIN production_stop_types stt ON stt.id = st.stop_type_id
+                WHERE st.plan_item_id IN ({placeholders})
+                {stop_where}
+                ORDER BY st.plan_item_id, st.start_at
+            """
+            stop_rows = db.execute(stop_query, item_ids + stop_params).fetchall()
+            for stop in stop_rows:
+                key = int(stop["plan_item_id"])
+                stop_by_item.setdefault(key, {"all": [], "unavailability": []})
+                interval = (stop["start_at"], stop["end_at"])
+                stop_by_item[key]["all"].append(interval)
+                if stop["counts_as_unavailability"]:
+                    stop_by_item[key]["unavailability"].append(interval)
+
+            for key, groups in stop_by_item.items():
+                groups["stop_minutes"] = _merged_interval_minutes(groups["all"])
+                groups["unavailability_minutes"] = _merged_interval_minutes(
+                    groups["unavailability"]
+                )
 
         # برای هر ردیف، شاخص‌های کنترلی را در Python محاسبه می‌کنیم تا
         # از تکرار فرمول‌ها در SQL و وابستگی به NULL جلوگیری شود.
@@ -1986,8 +2005,9 @@ def production_control():
             actual = float(row["actual_production"] or 0)
             waste = float(row["waste_qty"] or 0)
             rework = float(row["rework_qty"] or 0)
-            stop_minutes = float(row["stop_minutes"] or 0)
-            unavailability_minutes = float(row["unavailability_minutes"] or 0)
+            stop_info = stop_by_item.get(int(row["plan_item_id"]), {})
+            stop_minutes = float(stop_info.get("stop_minutes", 0.0))
+            unavailability_minutes = float(stop_info.get("unavailability_minutes", 0.0))
             allowed_percent = row["allowed_waste_percent"]
             allowed_percent = float(allowed_percent) if allowed_percent is not None else None
             allowed_qty = (actual * allowed_percent / 100.0) if allowed_percent is not None else None
