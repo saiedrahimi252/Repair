@@ -699,6 +699,23 @@ _TABLES = {
         [crosses_midnight] BIT NOT NULL DEFAULT 0,
         [is_active] BIT NOT NULL DEFAULT 1
     """,
+    "production_attendance": """
+        [id] INT IDENTITY(1,1) PRIMARY KEY,
+        [attendance_date] DATE NOT NULL,
+        [shift_id] INT NOT NULL,
+        [employee_id] INT NOT NULL,
+        [status] NVARCHAR(20) NOT NULL,
+        [start_at] DATETIME2 NULL,
+        [end_at] DATETIME2 NULL,
+        [notes] NVARCHAR(MAX),
+        [created_by] INT NULL,
+        [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT CK_prod_attendance_status CHECK ([status] IN ('present','absent','leave','off')),
+        CONSTRAINT CK_prod_attendance_time CHECK ([end_at] IS NULL OR [start_at] IS NULL OR [end_at] >= [start_at]),
+        CONSTRAINT UQ_prod_attendance_employee_shift_date UNIQUE ([attendance_date], [shift_id], [employee_id]),
+        CONSTRAINT FK_prod_attendance_shift FOREIGN KEY ([shift_id]) REFERENCES production_shifts([id]),
+        CONSTRAINT FK_prod_attendance_employee FOREIGN KEY ([employee_id]) REFERENCES production_employees([id])
+    """,
     "production_plans": """
         [id] INT IDENTITY(1,1) PRIMARY KEY,
         [plan_date] DATE NOT NULL,
@@ -810,7 +827,7 @@ _TABLE_ORDER = [
     "key_equipment", "key_equipment_meta", "monthly_repair_cost",
     "machine_passport", "machine_product_usage", "machine_passport_meta",
     "production_products", "production_suppliers", "production_raw_materials", "production_stations",
-    "production_machines", "production_station_products", "production_employees", "production_shifts",
+    "production_machines", "production_station_products", "production_employees", "production_shifts", "production_attendance",
     "production_plans", "production_plan_items", "production_stop_types", "production_defect_types",
     "production_entries", "production_stops", "production_waste_entries",
 ]
