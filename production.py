@@ -2317,26 +2317,35 @@ def performance_quality_report():
             groups = db.execute(f"""
                 SELECT i.product_id,
                        p.code AS product_code,p.name AS product_name,
-                       i.target_qty,i.management_target_qty,
-                       COALESCE(SUM(e.quantity),0) AS actual_production,
-                       COALESCE(SUM(CASE WHEN w.record_type='waste' THEN w.quantity ELSE 0 END),0) AS waste_qty,
-                       COALESCE(SUM(CASE WHEN w.record_type='rework' THEN w.quantity ELSE 0 END),0) AS rework_qty
+                       COALESCE(SUM(i.target_qty),0) AS target_qty,
+                       COALESCE(SUM(i.management_target_qty),0) AS management_target_qty,
+                       COALESCE((SELECT SUM(e.quantity)
+                                 FROM production_entries e
+                                 JOIN production_plan_items ei ON ei.id=e.plan_item_id
+                                 WHERE ei.work_day=i.work_day AND ei.station_id=i.station_id
+                                   AND ei.product_id=i.product_id
+                                   AND e.production_date=? AND e.shift_id=?),0) AS actual_production,
+                       COALESCE((SELECT SUM(CASE WHEN w.record_type='waste' THEN w.quantity ELSE 0 END)
+                                 FROM production_waste_entries w
+                                 JOIN production_plan_items wi ON wi.id=w.plan_item_id
+                                 WHERE wi.work_day=i.work_day AND wi.station_id=i.station_id
+                                   AND wi.product_id=i.product_id
+                                   AND w.production_date=? AND w.shift_id=?),0) AS waste_qty,
+                       COALESCE((SELECT SUM(CASE WHEN w.record_type='rework' THEN w.quantity ELSE 0 END)
+                                 FROM production_waste_entries w
+                                 JOIN production_plan_items wi ON wi.id=w.plan_item_id
+                                 WHERE wi.work_day=i.work_day AND wi.station_id=i.station_id
+                                   AND wi.product_id=i.product_id
+                                   AND w.production_date=? AND w.shift_id=?),0) AS rework_qty
                 FROM production_plan_items i
                 JOIN production_plans pl ON pl.id=i.plan_id AND pl.status='approved'
                 JOIN production_products p ON p.id=i.product_id
-                LEFT JOIN production_entries e
-                  ON e.plan_item_id=i.id
-                 AND e.production_date=?
-                 AND e.shift_id=?
-                LEFT JOIN production_waste_entries w
-                  ON w.plan_item_id=i.id
-                 AND w.production_date=?
-                 AND w.shift_id=?
                 WHERE i.work_day=?
                   AND i.station_id=?
                   {product_filter}
-                GROUP BY i.product_id,p.code,p.name,i.target_qty,i.management_target_qty
+                GROUP BY i.product_id,p.code,p.name,i.work_day,i.station_id
             """, (
+                cal["work_date"], cal["shift_id"],
                 cal["work_date"], cal["shift_id"],
                 cal["work_date"], cal["shift_id"],
                 cal["work_date"], cal["station_id"],
@@ -2347,10 +2356,11 @@ def performance_quality_report():
                 standard = db.execute("""
                     SELECT sp.standard_cycle_time_seconds AS product_cycle,
                            s.cycle_time_seconds AS station_cycle
-                    FROM production_station_products sp
-                    JOIN production_stations s ON s.id=sp.station_id
-                    WHERE sp.station_id=? AND sp.product_id=? AND sp.is_active=1
-                """, (cal["station_id"], g["product_id"])).fetchone()
+                    FROM production_stations s
+                    LEFT JOIN production_station_products sp
+                      ON sp.station_id=s.id AND sp.product_id=? AND sp.is_active=1
+                    WHERE s.id=?
+                """, (g["product_id"], cal["station_id"])).fetchone()
                 cycle = None
                 cycle_source = None
                 if standard is not None:
