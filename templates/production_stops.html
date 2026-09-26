@@ -22,7 +22,7 @@
     <thead><tr><th>تاریخ</th><th>نوع</th><th>محصول</th><th>شیفت</th><th>پرسنل</th><th>ماشین</th><th>شروع</th><th>پایان</th><th>دقیقه</th></tr></thead>
     <tbody>
     {% for row in rows %}
-      <tr><td>{{ row.production_date }}</td><td>{{ row.stop_code }} — {{ row.stop_name }}</td><td>{{ row.product_name or '-' }}</td><td>{{ row.shift_name }}</td><td>{{ row.employee_name or '-' }}</td><td>{{ row.machine_name or '-' }}</td><td>{{ row.start_at }}</td><td>{{ row.end_at }}</td><td>{{ row.duration_minutes }}</td></tr>
+      <tr><td>{{ row["production_date"] }}</td><td>{{ row["stop_type_code"] }} — {{ row["stop_type_name"] }}</td><td>{{ row["product_name"] or "-" }}</td><td>{{ row["shift_name"] }}</td><td>{{ row["employee_name"] or "-" }}</td><td>{{ row["machine_name"] or "-" }}</td><td>{{ row["start_at"] }}</td><td>{{ row["end_at"] }}</td><td>{{ row["duration_minutes"] }}</td></tr>
     {% else %}<tr><td colspan="9" class="text-center">هنوز توقف ثبت نشده است.</td></tr>{% endfor %}
     </tbody>
   </table>
