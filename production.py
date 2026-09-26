@@ -1962,7 +1962,7 @@ def production_control():
             placeholders = ",".join("?" for _ in item_ids)
             stop_query = f"""
                 SELECT st.plan_item_id, st.start_at, st.end_at,
-                       stt.counts_as_unavailability
+                       stt.counts_as_unavailability, stt.is_planned_stop
                 FROM production_stops st
                 JOIN production_stop_types stt ON stt.id = st.stop_type_id
                 WHERE st.plan_item_id IN ({placeholders})
@@ -1975,7 +1975,7 @@ def production_control():
                 stop_by_item.setdefault(key, {"all": [], "unavailability": []})
                 interval = (stop["start_at"], stop["end_at"])
                 stop_by_item[key]["all"].append(interval)
-                if stop["counts_as_unavailability"]:
+                if stop["counts_as_unavailability"] and not stop["is_planned_stop"]:
                     stop_by_item[key]["unavailability"].append(interval)
 
             for key, groups in stop_by_item.items():
