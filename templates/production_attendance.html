@@ -9,6 +9,7 @@
   <div class="card p-3 mb-4">
     <h5>ثبت حضور</h5>
     <form method="post" class="row g-2">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="col-md-2">
         <label class="form-label">تاریخ کاری</label>
         <input type="date" name="attendance_date" class="form-control" required>
