@@ -220,6 +220,15 @@ def _calculate_oee(availability_percent, performance_percent, quality_percent):
     )
 
 
+def _parse_iso_date(value, field_name="تاریخ"):
+    """تاریخ ISO را به‌صورت date معتبر می‌کند."""
+    from datetime import date
+    try:
+        return date.fromisoformat(str(value).strip())
+    except (TypeError, ValueError):
+        raise ValueError(f"{field_name} معتبر نیست.")
+
+
 def _shift_window(work_date, start_time, end_time, crosses_midnight):
     """بازه واقعی شیفت را با «تاریخ شروع شیفت» می‌سازد."""
     from datetime import datetime, timedelta
@@ -588,6 +597,7 @@ def plans():
                 return redirect(url_for("production.plans"))
 
             try:
+                _parse_iso_date(plan_date, "تاریخ برنامه")
                 db.execute(
                     """INSERT INTO production_plans
                        (plan_date,status,created_by,notes)
@@ -660,6 +670,7 @@ def plan_detail(plan_id):
             try:
                 product_id = int(product_id_raw)
                 station_id = int(station_id_raw) if station_id_raw else None
+                _parse_iso_date(work_day, "روز کاری")
                 target_qty = float(target_raw)
                 management_target_qty = (
                     float(management_target_raw) if management_target_raw else None
@@ -797,6 +808,7 @@ def production_stops():
             try:
                 from datetime import datetime
 
+                _parse_iso_date(production_date, "تاریخ توقف")
                 plan_item_id = int(plan_item_id_raw) if plan_item_id_raw else None
                 shift_id = int(shift_id_raw)
                 stop_type_id = int(stop_type_id_raw)
@@ -1024,6 +1036,7 @@ def production_waste_entries():
                 return redirect(url_for("production.production_waste_entries"))
 
             try:
+                _parse_iso_date(production_date, "تاریخ ضایعات/دوباره‌کاری")
                 plan_item_id = int(plan_item_id_raw) if plan_item_id_raw else None
                 shift_id = int(shift_id_raw)
                 defect_type_id = int(defect_type_id_raw) if defect_type_id_raw else None
@@ -1176,6 +1189,7 @@ def production_entries():
                 return redirect(url_for("production.production_entries"))
 
             try:
+                _parse_iso_date(production_date, "تاریخ تولید")
                 plan_item_id = int(plan_item_id_raw)
                 shift_id = int(shift_id_raw)
                 employee_id = int(employee_id_raw)
@@ -1654,6 +1668,10 @@ def production_control():
                 raise ValueError(f"{label} نامعتبر است.")
 
         try:
+            if date_from:
+                _parse_iso_date(date_from, "تاریخ شروع")
+            if date_to:
+                _parse_iso_date(date_to, "تاریخ پایان")
             product_id = _optional_int(product_id_raw, "محصول")
             station_id = _optional_int(station_id_raw, "ایستگاه")
             shift_id = _optional_int(shift_id_raw, "شیفت")
@@ -2561,6 +2579,10 @@ def oee_report():
                 raise ValueError(f"{label} نامعتبر است.")
 
         try:
+            if date_from:
+                _parse_iso_date(date_from, "تاریخ شروع")
+            if date_to:
+                _parse_iso_date(date_to, "تاریخ پایان")
             product_id = _optional_int(product_raw, "محصول")
             station_id = _optional_int(station_raw, "ایستگاه")
             shift_id = _optional_int(shift_raw, "شیفت")
@@ -2777,6 +2799,7 @@ def work_calendar():
                 flash("تاریخ، شیفت و ایستگاه الزامی است.", "error")
                 return redirect(url_for("production.work_calendar"))
             try:
+                _parse_iso_date(work_date, "تاریخ تقویم کاری")
                 shift_id = int(shift_id_raw); station_id = int(station_id_raw)
                 shift = db.execute("SELECT id,start_time,end_time,crosses_midnight FROM production_shifts WHERE id=? AND is_active=1", (shift_id,)).fetchone()
                 station = db.execute("SELECT id FROM production_stations WHERE id=? AND is_active=1", (station_id,)).fetchone()
