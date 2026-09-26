@@ -651,6 +651,21 @@ def production_stops():
                     raise ValueError("زمان توقف باید کاملاً داخل بازه شیفت انتخاب‌شده باشد.")
 
 
+                if plan_item_id is not None:
+                    item = db.execute(
+                        """SELECT i.id, i.station_id, p.status AS plan_status
+                           FROM production_plan_items i
+                           JOIN production_plans p ON p.id = i.plan_id
+                           WHERE i.id = ?""",
+                        (plan_item_id,),
+                    ).fetchone()
+                    if item is None:
+                        raise ValueError("آیتم برنامه پیدا نشد.")
+                    if item["plan_status"] != "approved":
+                        raise ValueError("ثبت توقف برای آیتم برنامه فقط پس از تأیید برنامه مجاز است.")
+                else:
+                    item = None
+
                 # از هم‌پوشانی توقف‌ها جلوگیری می‌کنیم تا یک دقیقه دوبار محاسبه نشود.
                 overlap_sql = """
                     SELECT TOP 1 id FROM production_stops
@@ -668,21 +683,6 @@ def production_stops():
                     overlap_sql += " AND machine_id IS NULL AND plan_item_id IS NULL"
                 if db.execute(overlap_sql, tuple(overlap_params)).fetchone() is not None:
                     raise ValueError("این بازه زمانی با یک توقف ثبت‌شده دیگر هم‌پوشانی دارد.")
-
-                if plan_item_id is not None:
-                    item = db.execute(
-                        """SELECT i.id, i.station_id, p.status AS plan_status
-                           FROM production_plan_items i
-                           JOIN production_plans p ON p.id = i.plan_id
-                           WHERE i.id = ?""",
-                        (plan_item_id,),
-                    ).fetchone()
-                    if item is None:
-                        raise ValueError("آیتم برنامه پیدا نشد.")
-                    if item["plan_status"] != "approved":
-                        raise ValueError("ثبت توقف برای آیتم برنامه فقط پس از تأیید برنامه مجاز است.")
-                else:
-                    item = None
 
                 if employee_id is not None:
                     employee = db.execute(
