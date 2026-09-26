@@ -2495,7 +2495,8 @@ def performance_quality_report():
                 waste = float(g["waste_qty"] or 0)
                 rework = float(g["rework_qty"] or 0)
                 quality = _calculate_quality(actual, waste, rework)
-                performance = _calculate_performance(actual, cycle, available)
+                performance = None if multiple_products else _calculate_performance(actual, cycle, available)
+                metric_note = "چند محصول در یک ایستگاه/شیفت؛ تخصیص زمان مشترک هنوز تعریف نشده است." if multiple_products else None
                 rows.append({
                     "work_date": cal["work_date"],
                     "shift_code": cal["shift_code"], "shift_name": cal["shift_name"],
@@ -2513,6 +2514,7 @@ def performance_quality_report():
                     "quality_percent": quality,
                     "performance_percent": performance,
                     "oee_percent": _calculate_oee(availability, performance, quality),
+                    "metric_note": metric_note,
                 })
 
         # خلاصه کل زمان ایستگاه‌ها؛ از تکرار زمان یک ایستگاه برای چند محصول جلوگیری می‌شود.
