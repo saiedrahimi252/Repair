@@ -2804,9 +2804,18 @@ def work_calendar():
                 shift = db.execute("SELECT id,start_time,end_time,crosses_midnight FROM production_shifts WHERE id=? AND is_active=1", (shift_id,)).fetchone()
                 station = db.execute("SELECT id FROM production_stations WHERE id=? AND is_active=1", (station_id,)).fetchone()
                 if shift is None or station is None: raise ValueError("شیفت یا ایستگاه انتخاب‌شده معتبر نیست.")
-                planned_minutes = float(planned_raw) if planned_raw else (_shift_minutes(shift["start_time"], shift["end_time"], shift["crosses_midnight"]) if is_working else 0.0)
-                if not math.isfinite(planned_minutes) or planned_minutes < 0 or planned_minutes > 1440: raise ValueError("زمان برنامه‌ریزی‌شده باید بین صفر تا 1440 دقیقه باشد.")
-                if is_working and planned_minutes <= 0: raise ValueError("برای روز کاری، زمان برنامه‌ریزی‌شده باید بیشتر از صفر باشد.")
+                shift_minutes = _shift_minutes(shift["start_time"], shift["end_time"], shift["crosses_midnight"])
+                planned_minutes = float(planned_raw) if planned_raw else (shift_minutes if is_working else 0.0)
+                if not math.isfinite(planned_minutes) or planned_minutes < 0 or planned_minutes > 1440:
+                    raise ValueError("زمان برنامه‌ریزی‌شده باید بین صفر تا 1440 دقیقه باشد.")
+                if not is_working and planned_minutes != 0:
+                    raise ValueError("برای روز غیرکاری، زمان برنامه‌ریزی‌شده باید صفر باشد.")
+                if is_working and planned_minutes <= 0:
+                    raise ValueError("برای روز کاری، زمان برنامه‌ریزی‌شده باید بیشتر از صفر باشد.")
+                if planned_minutes > shift_minutes:
+                    raise ValueError(
+                        f"زمان برنامه‌ریزی‌شده نمی‌تواند از مدت واقعی شیفت ({shift_minutes:.0f} دقیقه) بیشتر باشد."
+                    )
                 existing = db.execute("SELECT id FROM production_work_calendar WHERE work_date=? AND shift_id=? AND station_id=?", (work_date,shift_id,station_id)).fetchone()
                 if existing:
                     db.execute("UPDATE production_work_calendar SET is_working=?,planned_minutes=?,notes=?,created_by=?,created_at=SYSUTCDATETIME() WHERE id=?", (is_working,planned_minutes,notes,session.get("user_id"),existing["id"])); message="تقویم کاری به‌روزرسانی شد."
