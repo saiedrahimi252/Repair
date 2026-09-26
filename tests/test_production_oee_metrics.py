@@ -216,3 +216,112 @@ def test_merge_intervals_deduplicates_station_wide_and_machine_stop():
         (base, base + timedelta(minutes=45)),
         (base + timedelta(minutes=15), base + timedelta(minutes=30)),
     ]) == 45.0
+
+
+def test_stop_minutes_excludes_planned_overlap_from_unavailability():
+    from datetime import date, datetime, time
+    from production import _stop_minutes_for_calendar_row
+
+    class FakeDB:
+        def execute(self, sql, params):
+            class Result:
+                def fetchone(self):
+                    return {
+                        "start_time": time(8, 0),
+                        "end_time": time(16, 0),
+                        "crosses_midnight": False,
+                    }
+
+                def fetchall(self):
+                    return [
+                        {
+                            "start_at": datetime(2026, 9, 26, 10, 0),
+                            "end_at": datetime(2026, 9, 26, 11, 0),
+                            "machine_id": None,
+                            "counts_as_unavailability": True,
+                            "is_planned_stop": True,
+                        },
+                        {
+                            "start_at": datetime(2026, 9, 26, 10, 30),
+                            "end_at": datetime(2026, 9, 26, 11, 30),
+                            "machine_id": None,
+                            "counts_as_unavailability": True,
+                            "is_planned_stop": False,
+                        },
+                    ]
+
+            return Result()
+
+    result = _stop_minutes_for_calendar_row(
+        FakeDB(), date(2026, 9, 26), 1, 1, 480
+    )
+    assert result["planned_stop_minutes"] == 60.0
+    assert result["unavailability_minutes"] == 30.0
+    assert result["stop_minutes"] == 90.0
+
+
+def test_stop_minutes_clips_to_short_planned_window():
+    from datetime import date, datetime, time
+    from production import _stop_minutes_for_calendar_row
+
+    class FakeDB:
+        def execute(self, sql, params):
+            class Result:
+                def fetchone(self):
+                    return {
+                        "start_time": time(8, 0),
+                        "end_time": time(16, 0),
+                        "crosses_midnight": False,
+                    }
+
+                def fetchall(self):
+                    return [
+                        {
+                            "start_at": datetime(2026, 9, 26, 11, 0),
+                            "end_at": datetime(2026, 9, 26, 13, 0),
+                            "machine_id": None,
+                            "counts_as_unavailability": True,
+                            "is_planned_stop": False,
+                        }
+                    ]
+
+            return Result()
+
+    # Planned window is 08:00-12:00, so only 11:00-12:00 counts.
+    result = _stop_minutes_for_calendar_row(
+        FakeDB(), date(2026, 9, 26), 1, 1, 240
+    )
+    assert result["unavailability_minutes"] == 60.0
+    assert result["stop_minutes"] == 60.0
+
+
+def test_stop_minutes_union_handles_nested_and_chain_overlaps():
+    from datetime import date, datetime, time
+    from production import _stop_minutes_for_calendar_row
+
+    class FakeDB:
+        def execute(self, sql, params):
+            class Result:
+                def fetchone(self):
+                    return {
+                        "start_time": time(8, 0),
+                        "end_time": time(16, 0),
+                        "crosses_midnight": False,
+                    }
+
+                def fetchall(self):
+                    base = datetime(2026, 9, 26, 8, 0)
+                    return [
+                        {"start_at": base, "end_at": datetime(2026, 9, 26, 10, 0), "machine_id": 1, "counts_as_unavailability": True, "is_planned_stop": False},
+                        {"start_at": datetime(2026, 9, 26, 8, 30), "end_at": datetime(2026, 9, 26, 9, 0), "machine_id": 2, "counts_as_unavailability": True, "is_planned_stop": False},
+                        {"start_at": datetime(2026, 9, 26, 9, 45), "end_at": datetime(2026, 9, 26, 10, 30), "machine_id": 3, "counts_as_unavailability": True, "is_planned_stop": False},
+                    ]
+
+            return Result()
+
+    result = _stop_minutes_for_calendar_row(
+        FakeDB(), date(2026, 9, 26), 1, 1, 480
+    )
+    # 08:00-10:30 is one chained union.
+    assert result["unavailability_minutes"] == 150.0
+    assert result["stop_minutes"] == 150.0
