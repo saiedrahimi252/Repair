@@ -325,3 +325,11 @@ def test_stop_minutes_union_handles_nested_and_chain_overlaps():
     # 08:00-10:30 is one chained union.
     assert result["unavailability_minutes"] == 150.0
     assert result["stop_minutes"] == 150.0
+
+
+def test_stop_counts_as_unavailability_excludes_planned_stop():
+    from production import _stop_counts_as_unavailability
+
+    assert _stop_counts_as_unavailability({"counts_as_unavailability": True, "is_planned_stop": False}) is True
+    assert _stop_counts_as_unavailability({"counts_as_unavailability": True, "is_planned_stop": True}) is False
+    assert _stop_counts_as_unavailability({"counts_as_unavailability": False, "is_planned_stop": False}) is False
