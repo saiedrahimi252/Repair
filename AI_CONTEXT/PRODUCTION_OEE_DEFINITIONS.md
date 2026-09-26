@@ -77,7 +77,7 @@ OEE فقط وقتی قابل محاسبه است که هر سه مؤلفه قا�
 
 ## 6. محدودیت‌های فعلی
 
-- OEE هنوز در UI فعال نشده است.
+- گزارش OEE در UI فعال است؛ اما ردیف‌های فاقد داده کافی یا دارای چند محصول در یک ایستگاه/شیفت عمداً OEE قابل محاسبه نشان نمی‌دهند.
 - توقف‌های CMMS هنوز به‌صورت کامل وارد محاسبه OEE نشده‌اند.
 - Employee Break ها عمداً در Availability ماشین/ایستگاه وارد نمی‌شوند.
 - معادل آحاد و time_weight هنوز برای Performance جایگزین Cycle Time نشده‌اند.
@@ -94,3 +94,12 @@ When more than one product is present for the same work date + shift + station, 
 
 ## 2026-09-26 — Multiple machines per station
 Current station Availability is conservative: a machine-specific stop is included in the station stop union when that machine belongs to the station. The model does not yet know whether other machines can continue production in parallel or whether the stopped machine is a required bottleneck. Therefore this behavior is documented as a limitation rather than silently assuming parallel capacity. A future capacity/line-topology model should replace this assumption before using machine-level stops for high-precision station OEE.
+
+
+## 2026-09-26 — تاریخ شروع شیفت و شیفت‌های عبوری از نیمه‌شب
+- `production_date` و `work_date` برای رویدادهای متصل به برنامه، «تاریخ شروع شیفت» هستند؛ نه تاریخ تقویمی هر لحظه از رویداد.
+- برای شیفت 22:00 تا 06:00 در تاریخ 2026-09-26، بازه واقعی شیفت از `2026-09-26 22:00` تا `2026-09-27 06:00` است. رویدادی در ساعت 01:00 روز 27 همچنان متعلق به تاریخ کاری 26 است.
+- `_shift_window()` یک مرجع مشترک برای ساخت این بازه دارد و از اختلاف تعریف بین ثبت توقف و محاسبه Availability جلوگیری می‌کند.
+- اگر Plan Item وجود داشته باشد، تاریخ رویداد تولید/ضایعات/توقف باید با `work_day` آن Plan Item برابر باشد.
+- توقف‌ها به پنجره برنامه‌ریزی بریده می‌شوند؛ بنابراین اگر `planned_minutes` کمتر از طول کامل شیفت باشد، توقف بعد از پایان پنجره وارد Availability نمی‌شود.
+- تست‌های مربوط به این رفتار در `tests/test_production_oee_metrics.py` اضافه شده‌اند.
