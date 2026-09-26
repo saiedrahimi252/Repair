@@ -384,3 +384,12 @@ production_products, production_suppliers, production_raw_materials, production_
 - این اصلاح با منطق اعتبارسنجی گزارش‌های OEE و Performance/Quality هم‌راستا شد.
 - commit: `8a0a6348e323cf63c9bf7bf127c97af7ecf6863b`.
 - اجرای واقعی pytest یا برنامه روی محیط runtime در این مرحله انجام نشده است.
+
+
+### هم‌راستاسازی توقف‌های Control با OEE — 2026-09-26
+- در `/production/control` مشخص شد `SUM(duration_minutes)` توقف‌های هم‌پوشان را دوباره‌شماری می‌کند.
+- منطق اصلاح شد: توقف‌ها پس از دریافت ردیف‌های Control یک‌بار خوانده می‌شوند و برای هر `plan_item_id` با `_merged_interval_minutes()` به اتحاد بازه‌ها تبدیل می‌شوند؛ بنابراین توقف‌های هم‌پوشان فقط یک‌بار حساب می‌شوند.
+- `unavailability_minutes` نیز بر اساس اتحاد بازه‌های توقف‌های دارای `counts_as_unavailability=1` محاسبه می‌شود.
+- فیلترهای تاریخ/شیفت/پرسنل قبلی همچنان روی همین query اعمال می‌شوند.
+- commit: `df6c905e13220189288cb2934a323549a5441494`.
+- اجرای واقعی pytest یا runtime هنوز انجام نشده است.
