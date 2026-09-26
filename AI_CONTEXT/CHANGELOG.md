@@ -1,9 +1,8 @@
-## [2026-09-26] — تست رگرسیون aggregation گزارش‌های تولید
-- فایل `tests/test_production_report_aggregation.py` اضافه شد.
-- aggregation مورد استفاده OEE از نظر approved-only، چند Plan Item، حذف event بدون `plan_item_id` و تفکیک محصول/ایستگاه تست شد.
-- این تست‌ها از double-count ناشی از joinهای چندمرحله‌ای جلوگیری می‌کنند.
-- تست‌ها با SQLite in-memory اجراشدنی طراحی شده‌اند، اما pytest در محیط واقعی Windows/SQL Server هنوز اجرا نشده است.
-- commit: daab9f01c3796c4986abb80ed2d9d8863919c260
+## [2026-09-26] — رفع علت رد شدن POST تقویم کاری
+- بررسی لاگ Windows Server و کد CSRF نشان داد POST به /production/work-calendar با 302 به / برمی‌گشت چون فرم POST توکن CSRF نداشت و check_csrf() درخواست را با 400 رد می‌کرد.
+- فرم templates/production_work_calendar.html به hidden CSRF token مجهز شد.
+- commit نهایی: f3056b4650bff0866125889a393f848101678e6d
+- تست عملی روی Windows Server پس از این اصلاح هنوز انجام نشده است.
 
 # Changelog
 
@@ -25,10 +24,9 @@
 - منطق OEE و جریان مواد استخراج شد.
 - موارد #REF! ثبت شدند.
 
-
 ## [2026-09-26] — همسان‌سازی Control و migration طبقه‌بندی توقف
-- توقف‌های `is_planned_stop=1` در گزارش Control از unavailability حذف شدند.
-- helper مشترک `_stop_counts_as_unavailability` اضافه شد.
-- migration ستون `production_stop_types.is_planned_stop` در `get_connection()` فعال شد.
+- توقف‌های is_planned_stop=1 در گزارش Control از unavailability حذف شدند.
+- helper مشترک _stop_counts_as_unavailability اضافه شد.
+- migration ستون production_stop_types.is_planned_stop در get_connection() فعال شد.
 - تست رگرسیون طبقه‌بندی توقف اضافه شد.
 - commits: 6d512d9, 60e5b96, 1925ad6, 6589187
