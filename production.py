@@ -2856,6 +2856,16 @@ def planned_time_report():
         shift_raw = request.args.get("shift_id", "").strip()
         conditions = []
         params = []
+        try:
+            if date_from:
+                _parse_iso_date(date_from, "تاریخ شروع")
+            if date_to:
+                _parse_iso_date(date_to, "تاریخ پایان")
+            if date_from and date_to and date_from > date_to:
+                raise ValueError("تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد.")
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("production.planned_time_report"))
         if date_from:
             conditions.append("c.work_date >= ?"); params.append(date_from)
         if date_to:
