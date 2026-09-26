@@ -4,6 +4,7 @@
   <h2>ثبت وقفه پرسنلی</h2>
   <div class="card p-3 mb-4">
     <form method="post" class="row g-2">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="col-md-4"><select name="attendance_id" class="form-select" required><option value="">حضور را انتخاب کنید</option>{% for a in attendance_rows %}<option value="{{ a.id }}">{{ a.attendance_date }} - {{ a.shift_code }} - {{ a.employee_name }}</option>{% endfor %}</select></div>
       <div class="col-md-3"><select name="break_type_id" class="form-select" required><option value="">نوع وقفه</option>{% for t in type_rows %}<option value="{{ t.id }}">{{ t.code }} - {{ t.name }}</option>{% endfor %}</select></div>
       <div class="col-md-2"><input type="datetime-local" name="start_at" class="form-control" required></div>
