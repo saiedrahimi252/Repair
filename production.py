@@ -2606,8 +2606,18 @@ def work_calendar():
                     db.execute("INSERT INTO production_work_calendar (work_date,shift_id,station_id,is_working,planned_minutes,notes,created_by) VALUES (?,?,?,?,?,?,?)", (work_date,shift_id,station_id,is_working,planned_minutes,notes,session.get("user_id"))); message="زمان برنامه‌ریزی‌شده ثبت شد."
                 db.commit(); flash(message,"success")
             except Exception as exc:
-                db.rollback(); flash(f"ثبت تقویم کاری انجام نشد: {exc}","error")
-            return redirect(url_for("production.work_calendar"))
+                db.rollback()
+                # بعد از خطای POST، فیلترهای صفحه را حفظ می‌کنیم تا پیام خطا
+                # در همان صفحه‌ی تقویم کاری دیده شود و کاربر به داشبورد پرت نشود.
+                flash(f"ثبت تقویم کاری انجام نشد: {exc}", "error")
+            query = {}
+            if work_date:
+                query["date_from"] = work_date
+            if shift_id_raw:
+                query["shift_id"] = shift_id_raw
+            if station_id_raw:
+                query["station_id"] = station_id_raw
+            return redirect(url_for("production.work_calendar", **query))
         date_from=request.args.get("date_from","").strip(); date_to=request.args.get("date_to","").strip(); shift_filter=request.args.get("shift_id","").strip(); station_filter=request.args.get("station_id","").strip()
         conditions=[]; params=[]
         try:
