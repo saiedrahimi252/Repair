@@ -1574,12 +1574,21 @@ def attendance():
 
         filters = []
         params = []
+        try:
+            parsed_date_from = _parse_iso_date(date_from, "تاریخ شروع") if date_from else None
+            parsed_date_to = _parse_iso_date(date_to, "تاریخ پایان") if date_to else None
+            if parsed_date_from and parsed_date_to and parsed_date_from > parsed_date_to:
+                raise ValueError("تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد.")
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("production.attendance"))
+
         if date_from:
             filters.append("a.attendance_date >= ?")
-            params.append(date_from)
+            params.append(parsed_date_from.isoformat())
         if date_to:
             filters.append("a.attendance_date <= ?")
-            params.append(date_to)
+            params.append(parsed_date_to.isoformat())
         if shift_id_raw:
             try:
                 shift_filter = int(shift_id_raw)
