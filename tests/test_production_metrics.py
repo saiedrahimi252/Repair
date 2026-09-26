@@ -94,6 +94,12 @@ def test_oee_rejects_negative_or_non_finite_components():
     assert _calculate_oee(90, math.inf, 95) is None
 
 
+def test_oee_rejects_zero_production_via_invalid_performance():
+    performance = _calculate_performance(0, 60, 60)
+    assert performance is None
+    assert _calculate_oee(90, performance, 100) is None
+
+
 def test_shift_window_normal_shift():
     start, end = _shift_window(date(2026, 9, 26), time(8), time(16), False)
     assert start == datetime(2026, 9, 26, 8)
