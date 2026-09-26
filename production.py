@@ -1409,6 +1409,15 @@ def employee_break_types():
                 flash("کد، نام و دسته‌بندی معتبر الزامی است.", "error")
                 return redirect(url_for("production.employee_break_types"))
             try:
+                existing = db.execute(
+                    """SELECT id
+                       FROM production_employee_break_types
+                       WHERE code = ?""",
+                    (code,),
+                ).fetchone()
+                if existing is not None:
+                    raise ValueError("این کد نوع وقفه پرسنلی قبلاً ثبت شده است.")
+
                 db.execute(
                     """INSERT INTO production_employee_break_types
                        (code,name,category,counts_as_unavailability)
