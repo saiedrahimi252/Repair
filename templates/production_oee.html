@@ -24,7 +24,7 @@
     <div class="col-md-2"><div class="card p-3"><small>OEE کل</small><strong>—</strong></div></div>
   </div>
   <div class="alert alert-warning">
-    OEE کلِ بالای صفحه عمداً نمایش داده نمی‌شود، چون Cycle Time محصولات مختلف ممکن است متفاوت باشد. OEE هر ردیف فقط وقتی نمایش داده می‌شود که Availability، Performance و Quality هر سه قابل محاسبه باشند.
+    OEE کلِ بالای صفحه عمداً نمایش داده نمی‌شود، چون Cycle Time محصولات مختلف ممکن است متفاوت باشد. OEE هر ردیف فقط وقتی نمایش داده می‌شود که Availability، Performance و Quality هر سه قابل محاسبه باشند. اگر در یک ایستگاه/شیفت چند محصول وجود داشته باشد، زمان قابل‌استفاده بین محصولات مشترک است و تا تعیین روش رسمی تخصیص زمان، Performance و OEE آن ردیف‌ها «—» می‌ماند.
   </div>
   <div class="table-responsive">
     <table class="table table-bordered table-striped align-middle">
@@ -38,9 +38,9 @@
           <td>{% if r.cycle_time_seconds is not none %}{{ "%.2f"|format(r.cycle_time_seconds) }} ثانیه{% else %}—{% endif %}</td>
           <td>{{ "%.2f"|format(r.available_minutes) }}</td>
           <td>{% if r.availability_percent is not none %}{{ "%.2f"|format(r.availability_percent) }}٪{% else %}—{% endif %}</td>
-          <td>{% if r.performance_percent is not none %}{{ "%.2f"|format(r.performance_percent) }}٪{% else %}—{% endif %}</td>
+          <td title="{{ r.metric_note or '' }}">{% if r.performance_percent is not none %}{{ "%.2f"|format(r.performance_percent) }}٪{% else %}—{% endif %}</td>
           <td>{% if r.quality_percent is not none %}{{ "%.2f"|format(r.quality_percent) }}٪{% else %}—{% endif %}</td>
-          <td>{% if r.oee_percent is not none %}<strong>{{ "%.2f"|format(r.oee_percent) }}٪</strong>{% else %}—{% endif %}</td>
+          <td title="{{ r.metric_note or '' }}">{% if r.oee_percent is not none %}<strong>{{ "%.2f"|format(r.oee_percent) }}٪</strong>{% else %}—{% endif %}</td>
         </tr>
       {% else %}
         <tr><td colspan="13" class="text-center">برای فیلتر انتخاب‌شده داده‌ای پیدا نشد.</td></tr>
