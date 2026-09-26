@@ -49,7 +49,7 @@ Performance فقط زمانی قابل محاسبه است که برای محص�
 
 ترتیب پیشنهادی برای پیدا کردن زمان استاندارد:
 
-1. `production_station_products.cycle_time_seconds` برای ترکیب محصول + ایستگاه، اگر مقدار معتبر داشته باشد.
+1. `production_station_products.standard_cycle_time_seconds` برای ترکیب محصول + ایستگاه، اگر مقدار معتبر داشته باشد.
 2. در غیر این صورت `production_stations.cycle_time_seconds` به‌عنوان مقدار پیش‌فرض ایستگاه.
 
 اگر هیچ‌کدام معتبر نباشند، Performance و در نتیجه OEE نباید حدس زده شوند.
@@ -103,3 +103,9 @@ Current station Availability is conservative: a machine-specific stop is include
 - اگر Plan Item وجود داشته باشد، تاریخ رویداد تولید/ضایعات/توقف باید با `work_day` آن Plan Item برابر باشد.
 - توقف‌ها به پنجره برنامه‌ریزی بریده می‌شوند؛ بنابراین اگر `planned_minutes` کمتر از طول کامل شیفت باشد، توقف بعد از پایان پنجره وارد Availability نمی‌شود.
 - تست‌های مربوط به این رفتار در `tests/test_production_oee_metrics.py` اضافه شده‌اند.
+
+
+## 2026-09-26 — سازگارسازی گزارش Performance/Quality با حالت چندمحصولی
+- در گزارش `/production/performance-quality` اگر در یک تاریخ + شیفت + ایستگاه بیش از یک محصول وجود داشته باشد، زمان Available ایستگاه به هر محصول به‌صورت کامل تخصیص داده نمی‌شود.
+- در این حالت Performance و OEE برای ردیف‌های محصولی قابل محاسبه نیستند؛ Quality و Availability مشترک همچنان قابل گزارش‌اند.
+- نام فیلد Cycle Time در مدل فعلی `production_station_products.standard_cycle_time_seconds` است و همین نام باید در مستندات و کدهای آینده مرجع باشد.
