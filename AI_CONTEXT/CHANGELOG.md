@@ -24,3 +24,11 @@
 - ساختار و وابستگی 25 شیت Excel مستندسازی شد.
 - منطق OEE و جریان مواد استخراج شد.
 - موارد #REF! ثبت شدند.
+
+
+## [2026-09-26] — همسان‌سازی Control و migration طبقه‌بندی توقف
+- توقف‌های `is_planned_stop=1` در گزارش Control از unavailability حذف شدند.
+- helper مشترک `_stop_counts_as_unavailability` اضافه شد.
+- migration ستون `production_stop_types.is_planned_stop` در `get_connection()` فعال شد.
+- تست رگرسیون طبقه‌بندی توقف اضافه شد.
+- commits: 6d512d9, 60e5b96, 1925ad6, 6589187
