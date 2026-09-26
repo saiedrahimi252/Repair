@@ -86,3 +86,7 @@ OEE فقط وقتی قابل محاسبه است که هر سه مؤلفه قا�
 ## 7. اصل مهم
 
 هیچ مقدار OEE/Performance با حدس یا fallback مبهم تولید نشود. نبود داده استاندارد باید با «قابل محاسبه نیست» مشخص شود.
+
+
+## 2026-09-26 — Mixed products in one station/shift
+When more than one product is present for the same work date + shift + station, the station's Available Minutes are shared time and cannot safely be assigned in full to every product row. Until an explicit time-allocation rule is approved, Availability may be shown at the shared station level, but Performance and OEE for those product rows are intentionally not calculated. This prevents double allocation of the same available minutes and avoids understated Performance caused by reusing the full station time for each product.
