@@ -339,3 +339,9 @@ production_products, production_suppliers, production_raw_materials, production_
 - این رفتار با safeguard موجود در گزارش OEE یکسان شد و از Performance مصنوعی ناشی از تخصیص دوباره زمان مشترک جلوگیری می‌کند.
 - commitها: `84360e8d932fc465a63b4f6e670a645b43b1388e`، `9026befc17d71e1b64c7a796c673ccd58791ea04`، `2ab9c77330b127800d93ecde98b77c64edee4ff5`.
 - pytest اجرا نشده است.
+
+
+### همسان‌سازی مستندات OEE با مدل Cycle Time — 2026-09-26
+- نام صحیح فیلد Cycle Time در `production_station_products` به `standard_cycle_time_seconds` اصلاح و در سند مرجع OEE ثبت شد.
+- محدودیت چندمحصولی Performance/Quality نیز در سند مرجع صریحاً ثبت شد.
+- commit: `63b274f6bfb75037481aec9517ff942941d19505`.
