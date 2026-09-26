@@ -393,3 +393,9 @@ production_products, production_suppliers, production_raw_materials, production_
 - فیلترهای تاریخ/شیفت/پرسنل قبلی همچنان روی همین query اعمال می‌شوند.
 - commit: `df6c905e13220189288cb2934a323549a5441494`.
 - اجرای واقعی pytest یا runtime هنوز انجام نشده است.
+
+
+### رگرسیون aggregation گزارش تولید — 2026-09-26
+- تست‌های رگرسیون برای aggregation گزارش OEE اضافه شد: approved-only، چند Plan Item بدون double-count، حذف event بدون plan_item_id و عدم اختلاط محصول/ایستگاه.
+- commit: daab9f01c3796c4986abb80ed2d9d8863919c260
+- pytest واقعی روی Windows Server هنوز اجرا نشده است.
