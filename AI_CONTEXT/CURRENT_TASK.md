@@ -322,3 +322,11 @@ production_products, production_suppliers, production_raw_materials, production_
 - این تغییرات مدل Availability چندماشینه را عوض نمی‌کنند؛ همچنان محدودیت ظرفیت موازی طبق مستندات پابرجاست.
 - commitهای این مرحله: `b58bc8813649c08772e3af62356738f589c7c93f`، `863d5fbbb58d7444ebda9343c8bfade50b1683f2` و `74921b14ce14119a108094f576b55f75746a16eb`.
 - pytest در محیط واقعی کاربر اجرا نشده است؛ تست‌ها در repository اضافه/به‌روزرسانی شده‌اند.
+
+
+### Performance/Quality date filter hardening — 2026-09-26
+- The `/production/performance-quality` report now validates `date_from` and `date_to` with `_parse_iso_date()` and rejects reversed ranges.
+- Parsed dates are normalized to ISO before SQL filtering.
+- No Quality or Performance formula was changed.
+- Commit: b13d7fe4c37b692b708af94d1cd3745f140bf242
+- pytest has not been run in the real project environment.
