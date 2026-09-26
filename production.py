@@ -1096,7 +1096,533 @@ def delete_plan_item(plan_id, item_id):
         db.close()
 
 
+@production_bp.route("/employee-break-types", methods=["GET", "POST"])
+@roles_required("admin")
+def employee_break_types():
+    db = _db()
+    try:
+        if request.method == "POST":
+            code = request.form.get("code", "").strip()
+            name = request.form.get("name", "").strip()
+            category = request.form.get("category", "").strip().lower()
+            counts = 1 if request.form.get("counts_as_unavailability") == "1" else 0
+            if not code or not name or category not in {"break", "personal", "leave", "other"}:
+                flash("کد، نام و دسته‌بندی معتبر الزامی است.", "error")
+                return redirect(url_for("production.employee_break_types"))
+            try:
+                db.execute(
+                    """INSERT INTO production_employee_break_types
+                       (code,name,category,counts_as_unavailability)
+                       VALUES (?,?,?,?)""",
+                    (code, name, category, counts),
+                )
+                db.commit()
+                flash("نوع وقفه پرسنلی ثبت شد.", "success")
+            except Exception as exc:
+                db.rollback()
+                flash(f"ثبت نوع وقفه انجام نشد: {exc}", "error")
+            return redirect(url_for("production.employee_break_types"))
+
+        rows = db.execute(
+            """SELECT id, code, name, category, counts_as_unavailability, is_active
+               FROM production_employee_break_types ORDER BY code"""
+        ).fetchall()
+        return render_template("production_employee_break_types.html", rows=rows)
+    finally:
+        db.close()
+
+
+@production_bp.route("/employee-breaks", methods=["GET", "POST"])
+@roles_required("admin")
+def employee_breaks():
+    db = _db()
+    try:
+        if request.method == "POST":
+            attendance_id = int(request.form.get("attendance_id", "0"))
+            break_type_id = int(request.form.get("break_type_id", "0"))
+            start_at = request.form.get("start_at", "").strip()
+            end_at = request.form.get("end_at", "").strip()
+            notes = request.form.get("notes", "").strip() or None
+            try:
+                from datetime import datetime
+                start_dt = datetime.fromisoformat(start_at)
+                end_dt = datetime.fromisoformat(end_at)
+                if end_dt <= start_dt:
+                    raise ValueError("زمان پایان باید بعد از شروع باشد.")
+                attendance = db.execute(
+                    """SELECT id, start_at, end_at
+                       FROM production_attendance WHERE id = ?""",
+                    (attendance_id,),
+                ).fetchone()
+                if attendance is None:
+                    raise ValueError("رکورد حضور معتبر نیست.")
+                break_type = db.execute(
+                    """SELECT id FROM production_employee_break_types
+                       WHERE id = ? AND is_active = 1""",
+                    (break_type_id,),
+                ).fetchone()
+                if break_type is None:
+                    raise ValueError("نوع وقفه معتبر نیست.")
+                if attendance.start_at and start_dt < attendance.start_at:
+                    raise ValueError("شروع وقفه قبل از شروع حضور است.")
+                if attendance.end_at and end_dt > attendance.end_at:
+                    raise ValueError("پایان وقفه بعد از پایان حضور است.")
+                duration = (end_dt - start_dt).total_seconds() / 60.0
+                db.execute(
+                    """INSERT INTO production_employee_breaks
+                       (attendance_id,break_type_id,start_at,end_at,duration_minutes,notes,created_by)
+                       VALUES (?,?,?,?,?,?,?)""",
+                    (attendance_id, break_type_id, start_at, end_at, duration, notes, session.get("user_id")),
+                )
+                db.commit()
+                flash("وقفه پرسنلی ثبت شد.", "success")
+            except Exception as exc:
+                db.rollback()
+                flash(f"ثبت وقفه انجام نشد: {exc}", "error")
+            return redirect(url_for("production.employee_breaks"))
+
+        rows = db.execute(
+            """SELECT b.id, b.start_at, b.end_at, b.duration_minutes, b.notes,
+                      a.attendance_date, e.full_name AS employee_name,
+                      sh.code AS shift_code, t.code AS type_code, t.name AS type_name
+               FROM production_employee_breaks b
+               JOIN production_attendance a ON a.id = b.attendance_id
+               JOIN production_employees e ON e.id = a.employee_id
+               JOIN production_shifts sh ON sh.id = a.shift_id
+               JOIN production_employee_break_types t ON t.id = b.break_type_id
+               ORDER BY b.start_at DESC, b.id DESC"""
+        ).fetchall()
+        attendance_rows = db.execute(
+            """SELECT a.id, a.attendance_date, e.full_name AS employee_name,
+                      sh.code AS shift_code
+               FROM production_attendance a
+               JOIN production_employees e ON e.id = a.employee_id
+               JOIN production_shifts sh ON sh.id = a.shift_id
+               ORDER BY a.attendance_date DESC, e.full_name"""
+        ).fetchall()
+        type_rows = db.execute(
+            """SELECT id, code, name FROM production_employee_break_types
+               WHERE is_active = 1 ORDER BY code"""
+        ).fetchall()
+        return render_template(
+            "production_employee_breaks.html",
+            rows=rows,
+            attendance_rows=attendance_rows,
+            type_rows=type_rows,
+        )
+    finally:
+        db.close()
+
+
 @production_bp.route("/attendance", methods=["GET", "POST"])
+@roles_required("admin")
+def attendance():
+    """ثبت و مشاهده حضور و وضعیت نیروی تولید؛ بدون محاسبه زمان مفید/OEE."""
+    db = _db()
+    try:
+        if request.method == "POST":
+            attendance_date = request.form.get("attendance_date", "").strip()
+            shift_id_raw = request.form.get("shift_id", "").strip()
+            employee_id_raw = request.form.get("employee_id", "").strip()
+            status = request.form.get("status", "").strip().lower()
+            start_at = request.form.get("start_at", "").strip() or None
+            end_at = request.form.get("end_at", "").strip() or None
+            notes = request.form.get("notes", "").strip() or None
+
+            allowed_statuses = {"present", "absent", "leave", "off"}
+            if not attendance_date or not shift_id_raw or not employee_id_raw or status not in allowed_statuses:
+                flash("تاریخ، شیفت، پرسنل و وضعیت حضور الزامی است.", "error")
+                return redirect(url_for("production.attendance"))
+
+            try:
+                shift_id = int(shift_id_raw)
+                employee_id = int(employee_id_raw)
+
+                shift = db.execute(
+                    "SELECT id FROM production_shifts WHERE id = ? AND is_active = 1",
+                    (shift_id,),
+                ).fetchone()
+                if shift is None:
+                    raise ValueError("شیفت انتخاب‌شده معتبر نیست.")
+
+                employee = db.execute(
+                    "SELECT id FROM production_employees WHERE id = ? AND is_active = 1",
+                    (employee_id,),
+                ).fetchone()
+                if employee is None:
+                    raise ValueError("پرسنل انتخاب‌شده معتبر نیست.")
+
+                if start_at and end_at:
+                    from datetime import datetime
+                    start_dt = datetime.fromisoformat(start_at)
+                    end_dt = datetime.fromisoformat(end_at)
+                    if end_dt < start_dt:
+                        raise ValueError("زمان پایان نمی‌تواند قبل از زمان شروع باشد.")
+
+                db.execute(
+                    """INSERT INTO production_attendance
+                       (attendance_date,shift_id,employee_id,status,start_at,end_at,notes,created_by)
+                       VALUES (?,?,?,?,?,?,?,?)""",
+                    (
+                        attendance_date,
+                        shift_id,
+                        employee_id,
+                        status,
+                        start_at,
+                        end_at,
+                        notes,
+                        session.get("user_id"),
+                    ),
+                )
+                db.commit()
+                flash("رکورد حضور تولید با موفقیت ثبت شد.", "success")
+            except Exception as exc:
+                db.rollback()
+                flash(f"ثبت حضور انجام نشد: {exc}", "error")
+            return redirect(url_for("production.attendance"))
+
+        date_from = request.args.get("date_from", "").strip()
+        date_to = request.args.get("date_to", "").strip()
+        shift_id_raw = request.args.get("shift_id", "").strip()
+        employee_id_raw = request.args.get("employee_id", "").strip()
+
+        filters = []
+        params = []
+        if date_from:
+            filters.append("a.attendance_date >= ?")
+            params.append(date_from)
+        if date_to:
+            filters.append("a.attendance_date <= ?")
+            params.append(date_to)
+        if shift_id_raw:
+            try:
+                shift_filter = int(shift_id_raw)
+                filters.append("a.shift_id = ?")
+                params.append(shift_filter)
+            except ValueError:
+                flash("شیفت فیلترشده معتبر نیست.", "error")
+                return redirect(url_for("production.attendance"))
+        if employee_id_raw:
+            try:
+                employee_filter = int(employee_id_raw)
+                filters.append("a.employee_id = ?")
+                params.append(employee_filter)
+            except ValueError:
+                flash("پرسنل فیلترشده معتبر نیست.", "error")
+                return redirect(url_for("production.attendance"))
+
+        where_sql = ("WHERE " + " AND ".join(filters)) if filters else ""
+
+        rows = db.execute(
+            f"""SELECT a.id, a.attendance_date, a.status, a.start_at, a.end_at,
+                       a.notes, a.created_at,
+                       sh.code AS shift_code, sh.name AS shift_name,
+                       e.personnel_code, e.full_name AS employee_name
+                FROM production_attendance a
+                JOIN production_shifts sh ON sh.id = a.shift_id
+                JOIN production_employees e ON e.id = a.employee_id
+                {where_sql}
+                ORDER BY a.attendance_date DESC, sh.code, e.full_name, a.id DESC""",
+            params,
+        ).fetchall()
+
+        shifts_rows = db.execute(
+            "SELECT id, code, name FROM production_shifts WHERE is_active = 1 ORDER BY code"
+        ).fetchall()
+        employees_rows = db.execute(
+            "SELECT id, personnel_code, full_name FROM production_employees WHERE is_active = 1 ORDER BY full_name"
+        ).fetchall()
+
+        return render_template(
+            "production_attendance.html",
+            rows=rows,
+            shifts=shifts_rows,
+            employees=employees_rows,
+            filters={
+                "date_from": date_from,
+                "date_to": date_to,
+                "shift_id": shift_id_raw,
+                "employee_id": employee_id_raw,
+            },
+        )
+    finally:
+        db.close()
+
+
+@production_bp.route("/control")
+@roles_required("admin")
+def production_control():
+    """کنترل تجمیعی برنامه، تولید، ضایعات و دوباره‌کاری؛ بدون محاسبه OEE."""
+    db = _db()
+    try:
+        from datetime import date
+
+        date_from = request.args.get("date_from", "").strip()
+        date_to = request.args.get("date_to", "").strip()
+        product_id_raw = request.args.get("product_id", "").strip()
+        station_id_raw = request.args.get("station_id", "").strip()
+        shift_id_raw = request.args.get("shift_id", "").strip()
+        employee_id_raw = request.args.get("employee_id", "").strip()
+
+        # بازه پیش‌فرض: امروز تا امروز؛ کاربر می‌تواند آن را خالی کند تا همه تاریخ‌ها بررسی شوند.
+        if not date_from and not date_to:
+            today = date.today().isoformat()
+            date_from = today
+            date_to = today
+        elif date_from and not date_to:
+            date_to = date_from
+        elif date_to and not date_from:
+            date_from = date_to
+
+        def _optional_int(raw, label):
+            if not raw:
+                return None
+            try:
+                return int(raw)
+            except ValueError:
+                raise ValueError(f"{label} نامعتبر است.")
+
+        try:
+            product_id = _optional_int(product_id_raw, "محصول")
+            station_id = _optional_int(station_id_raw, "ایستگاه")
+            shift_id = _optional_int(shift_id_raw, "شیفت")
+            employee_id = _optional_int(employee_id_raw, "پرسنل")
+            if date_from and date_to and date_from > date_to:
+                raise ValueError("تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد.")
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("production.production_control"))
+
+        # فقط آیتم‌های برنامه تأییدشده در کنترل مبنا قرار می‌گیرند.
+        item_filters = ["p.status = 'approved'"]
+        item_params = []
+
+        if date_from:
+            item_filters.append("i.work_day >= ?")
+            item_params.append(date_from)
+        if date_to:
+            item_filters.append("i.work_day <= ?")
+            item_params.append(date_to)
+        if product_id is not None:
+            item_filters.append("i.product_id = ?")
+            item_params.append(product_id)
+        if station_id is not None:
+            item_filters.append("i.station_id = ?")
+            item_params.append(station_id)
+
+        where_items = " AND ".join(item_filters)
+
+        # فیلترهای رویداد تولید؛ تاریخ رویداد از work_day مستقل نگه داشته می‌شود.
+        production_filters = []
+        production_params = []
+        if date_from:
+            production_filters.append("e.production_date >= ?")
+            production_params.append(date_from)
+        if date_to:
+            production_filters.append("e.production_date <= ?")
+            production_params.append(date_to)
+        if shift_id is not None:
+            production_filters.append("e.shift_id = ?")
+            production_params.append(shift_id)
+        if employee_id is not None:
+            production_filters.append("e.employee_id = ?")
+            production_params.append(employee_id)
+
+        production_where = (" AND " + " AND ".join(production_filters)) if production_filters else ""
+
+        waste_filters = []
+        waste_params = []
+        if date_from:
+            waste_filters.append("w.production_date >= ?")
+            waste_params.append(date_from)
+        if date_to:
+            waste_filters.append("w.production_date <= ?")
+            waste_params.append(date_to)
+        if shift_id is not None:
+            waste_filters.append("w.shift_id = ?")
+            waste_params.append(shift_id)
+        if employee_id is not None:
+            waste_filters.append("w.employee_id = ?")
+            waste_params.append(employee_id)
+
+        waste_where = (" AND " + " AND ".join(waste_filters)) if waste_filters else ""
+
+        stop_filters = []
+        stop_params = []
+        if date_from:
+            stop_filters.append("st.production_date >= ?")
+            stop_params.append(date_from)
+        if date_to:
+            stop_filters.append("st.production_date <= ?")
+            stop_params.append(date_to)
+        if shift_id is not None:
+            stop_filters.append("st.shift_id = ?")
+            stop_params.append(shift_id)
+        if employee_id is not None:
+            stop_filters.append("st.employee_id = ?")
+            stop_params.append(employee_id)
+        stop_where = (" AND " + " AND ".join(stop_filters)) if stop_filters else ""
+
+        rows = db.execute(
+            f"""SELECT
+                    i.id AS plan_item_id,
+                    i.work_day,
+                    i.target_qty,
+                    i.management_target_qty,
+                    pr.code AS product_code,
+                    pr.name AS product_name,
+                    s.code AS station_code,
+                    s.name AS station_name,
+                    sp.allowed_waste_percent,
+                    COALESCE((
+                        SELECT SUM(e.quantity)
+                        FROM production_entries e
+                        WHERE e.plan_item_id = i.id
+                        {production_where}
+                    ), 0) AS actual_production,
+                    COALESCE((
+                        SELECT SUM(w.quantity)
+                        FROM production_waste_entries w
+                        WHERE w.plan_item_id = i.id
+                          AND w.record_type = 'waste'
+                        {waste_where}
+                    ), 0) AS waste_qty,
+                    COALESCE((
+                        SELECT SUM(w.quantity)
+                        FROM production_waste_entries w
+                        WHERE w.plan_item_id = i.id
+                          AND w.record_type = 'rework'
+                        {waste_where}
+                    ), 0) AS rework_qty,
+                    COALESCE((
+                        SELECT SUM(st.duration_minutes)
+                        FROM production_stops st
+                        WHERE st.plan_item_id = i.id
+                        {stop_where}
+                    ), 0) AS stop_minutes,
+                    COALESCE((
+                        SELECT SUM(CASE WHEN stt.counts_as_unavailability = 1 THEN st.duration_minutes ELSE 0 END)
+                        FROM production_stops st
+                        JOIN production_stop_types stt ON stt.id = st.stop_type_id
+                        WHERE st.plan_item_id = i.id
+                        {stop_where}
+                    ), 0) AS unavailability_minutes
+                FROM production_plan_items i
+                JOIN production_plans p ON p.id = i.plan_id
+                JOIN production_products pr ON pr.id = i.product_id
+                LEFT JOIN production_stations s ON s.id = i.station_id
+                LEFT JOIN production_station_products sp
+                  ON sp.station_id = i.station_id
+                 AND sp.product_id = i.product_id
+                 AND sp.is_active = 1
+                WHERE {where_items}
+                ORDER BY i.work_day, pr.name, s.name, i.id""",
+            production_params + waste_params + waste_params + stop_params + stop_params + item_params,
+        ).fetchall()
+
+        # برای هر ردیف، شاخص‌های کنترلی را در Python محاسبه می‌کنیم تا
+        # از تکرار فرمول‌ها در SQL و وابستگی به NULL جلوگیری شود.
+        control_rows = []
+        totals = {
+            "target_qty": 0.0,
+            "management_target_qty": 0.0,
+            "actual_production": 0.0,
+            "waste_qty": 0.0,
+            "rework_qty": 0.0,
+            "allowed_waste_qty": 0.0,
+            "allowed_waste_defined": False,
+            "stop_minutes": 0.0,
+            "unavailability_minutes": 0.0,
+        }
+
+        for row in rows:
+            target = float(row["target_qty"] or 0)
+            management_target = float(row["management_target_qty"] or 0)
+            actual = float(row["actual_production"] or 0)
+            waste = float(row["waste_qty"] or 0)
+            rework = float(row["rework_qty"] or 0)
+            stop_minutes = float(row["stop_minutes"] or 0)
+            unavailability_minutes = float(row["unavailability_minutes"] or 0)
+            allowed_percent = row["allowed_waste_percent"]
+            allowed_percent = float(allowed_percent) if allowed_percent is not None else None
+            allowed_qty = (actual * allowed_percent / 100.0) if allowed_percent is not None else None
+            actual_waste_percent = (waste / actual * 100.0) if actual > 0 else None
+            waste_excess = (waste - allowed_qty) if allowed_qty is not None else None
+
+            item = dict(row)
+            item.update({
+                "target_qty": target,
+                "management_target_qty": management_target,
+                "actual_production": actual,
+                "waste_qty": waste,
+                "rework_qty": rework,
+                "stop_minutes": stop_minutes,
+                "unavailability_minutes": unavailability_minutes,
+                "production_variance": actual - target,
+                "allowed_waste_qty": allowed_qty,
+                "actual_waste_percent": actual_waste_percent,
+                "waste_excess": waste_excess,
+            })
+            control_rows.append(item)
+
+            totals["target_qty"] += target
+            totals["management_target_qty"] += management_target
+            totals["actual_production"] += actual
+            totals["waste_qty"] += waste
+            totals["rework_qty"] += rework
+            totals["stop_minutes"] += stop_minutes
+            totals["unavailability_minutes"] += unavailability_minutes
+            if allowed_qty is not None:
+                totals["allowed_waste_qty"] += allowed_qty
+                totals["allowed_waste_defined"] = True
+
+        totals["production_variance"] = totals["actual_production"] - totals["target_qty"]
+        totals["actual_waste_percent"] = (
+            totals["waste_qty"] / totals["actual_production"] * 100.0
+            if totals["actual_production"] > 0 else None
+        )
+        totals["waste_excess"] = (
+            totals["waste_qty"] - totals["allowed_waste_qty"]
+            if totals["allowed_waste_defined"] else None
+        )
+
+        products_rows = db.execute(
+            "SELECT id, code, name FROM production_products WHERE is_active = 1 ORDER BY name"
+        ).fetchall()
+        stations_rows = db.execute(
+            "SELECT id, code, name FROM production_stations WHERE is_active = 1 ORDER BY name"
+        ).fetchall()
+        shifts_rows = db.execute(
+            "SELECT id, code, name FROM production_shifts WHERE is_active = 1 ORDER BY code"
+        ).fetchall()
+        employees_rows = db.execute(
+            "SELECT id, personnel_code, full_name FROM production_employees WHERE is_active = 1 ORDER BY full_name"
+        ).fetchall()
+
+        filters = {
+            "date_from": date_from,
+            "date_to": date_to,
+            "product_id": product_id_raw,
+            "station_id": station_id_raw,
+            "shift_id": shift_id_raw,
+            "employee_id": employee_id_raw,
+        }
+
+        return render_template(
+            "production_control.html",
+            rows=control_rows,
+            totals=totals,
+            filters=filters,
+            products=products_rows,
+            stations=stations_rows,
+            shifts=shifts_rows,
+            employees=employees_rows,
+        )
+    except Exception as exc:
+        flash(f"گزارش کنترل تولید ایجاد نشد: {exc}", "error")
+        return redirect(url_for("production.dashboard"))
+    finally:
+        db.close()
 @roles_required("admin")
 def attendance():
     """ثبت و مشاهده حضور و وضعیت نیروی تولید؛ بدون محاسبه زمان مفید/OEE."""
