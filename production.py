@@ -2427,12 +2427,14 @@ def performance_quality_report():
                        COALESCE((SELECT SUM(e.quantity)
                                  FROM production_entries e
                                  JOIN production_plan_items ei ON ei.id=e.plan_item_id
+                                 JOIN production_plans ep ON ep.id=ei.plan_id AND ep.status='approved'
                                  WHERE ei.work_day=i.work_day AND ei.station_id=i.station_id
                                    AND ei.product_id=i.product_id
                                    AND e.production_date=? AND e.shift_id=?),0) AS actual_production,
                        COALESCE((SELECT SUM(CASE WHEN w.record_type='waste' THEN w.quantity ELSE 0 END)
                                  FROM production_waste_entries w
                                  JOIN production_plan_items wi ON wi.id=w.plan_item_id
+                                 JOIN production_plans wp ON wp.id=wi.plan_id AND wp.status='approved'
                                  WHERE wi.work_day=i.work_day AND wi.station_id=i.station_id
                                    AND wi.product_id=i.product_id
                                    AND w.production_date=? AND w.shift_id=?),0) AS waste_qty,
