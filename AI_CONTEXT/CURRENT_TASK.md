@@ -173,3 +173,11 @@ production_products, production_suppliers, production_raw_materials, production_
 - `unavailability_minutes` در این گزارش فقط توقف‌های `counts_as_unavailability=1` و `is_planned_stop=0` را شامل می‌شود؛ بنابراین توقف برنامه‌ریزی‌شده به‌اشتباه به‌عنوان عدم‌دسترسی غیر برنامه‌ریزی‌شده وارد Availability آینده نمی‌شود.
 - `net_planned_minutes = planned_minutes - planned_stop_minutes` با کف صفر محاسبه می‌شود.
 - Availability و OEE همچنان عمداً محاسبه نمی‌شوند تا تعریف زمان مفید و سایر قواعد نهایی شود.
+
+
+### پیشرفت جدید — زمان قابل‌استفاده برای مبنای Availability — 2026-09-26
+- گزارش زمان برنامه‌ریزی‌شده اکنون `available_minutes` را نیز محاسبه می‌کند.
+- فرمول فعلی: `available_minutes = max(planned_minutes - planned_stop_minutes - unavailability_minutes, 0)`.
+- این مقدار «زمان قابل‌استفاده تولید» است و هنوز نسبت Availability یا OEE محاسبه نمی‌شود.
+- توقف برنامه‌ریزی‌شده ابتدا از زمان برنامه کسر می‌شود و سپس عدم‌دسترسی غیر برنامه‌ریزی‌شده از زمان باقی‌مانده کسر می‌شود.
+- این تفکیک مبنای مرحله بعدی تعریف رسمی Availability خواهد بود.
