@@ -757,6 +757,7 @@ _TABLES = {
         [name] NVARCHAR(200) NOT NULL,
         [category] NVARCHAR(50) NULL,
         [counts_as_unavailability] BIT NOT NULL DEFAULT 1,
+        [is_planned_stop] BIT NOT NULL DEFAULT 0,
         [is_active] BIT NOT NULL DEFAULT 1,
         [created_at] DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
     """,
@@ -931,6 +932,13 @@ def _ensure_default_constraint(conn: Connection, table: str, column: str, defaul
         conn.execute(
             f"ALTER TABLE dbo.{table} ADD CONSTRAINT {constraint_name} DEFAULT {default_sql} FOR [{column}]"
         )
+        conn.commit()
+
+
+def _migrate_production_stop_type_columns(conn: Connection) -> None:
+    """ستون‌های طبقه‌بندی توقف را برای دیتابیس‌های قبلی اضافه می‌کند."""
+    if _column_exists(conn, "production_stop_types", "counts_as_unavailability") and not _column_exists(conn, "production_stop_types", "is_planned_stop"):
+        conn.execute("ALTER TABLE production_stop_types ADD [is_planned_stop] BIT NOT NULL CONSTRAINT DF_prod_stop_type_planned DEFAULT 0")
         conn.commit()
 
 
