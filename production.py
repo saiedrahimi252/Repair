@@ -2459,6 +2459,8 @@ def performance_quality_report():
                 *product_params,
             )).fetchall()
 
+            multiple_products = len(groups) > 1
+
             for g in groups:
                 standard = db.execute("""
                     SELECT sp.standard_cycle_time_seconds AS product_cycle,
