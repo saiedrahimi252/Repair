@@ -97,3 +97,96 @@ def test_subtract_intervals_handles_multiple_blockers():
         (base + timedelta(minutes=20), base + timedelta(minutes=30)),
         (base + timedelta(minutes=45), base + timedelta(minutes=60)),
     ]
+
+
+def test_shift_window_normal_shift():
+    from datetime import date, time
+    from production import _shift_window
+
+    start, end = _shift_window(date(2026, 9, 26), time(8, 0), time(16, 0), False)
+    assert start.isoformat() == "2026-09-26T08:00:00"
+    assert end.isoformat() == "2026-09-26T16:00:00"
+
+
+def test_shift_window_crosses_midnight():
+    from datetime import date, time
+    from production import _shift_window
+
+    start, end = _shift_window(date(2026, 9, 26), time(22, 0), time(6, 0), True)
+    assert start.isoformat() == "2026-09-26T22:00:00"
+    assert end.isoformat() == "2026-09-27T06:00:00"
+
+
+def test_stop_minutes_use_planned_window_and_ignore_late_stop():
+    from datetime import date, datetime, time
+    from production import _stop_minutes_for_calendar_row
+
+    class FakeDB:
+        def execute(self, sql, params):
+            class Result:
+                def fetchone(self):
+                    return {
+                        "start_time": time(8, 0),
+                        "end_time": time(16, 0),
+                        "crosses_midnight": False,
+                    }
+
+                def fetchall(self):
+                    return [
+                        {
+                            "start_at": datetime(2026, 9, 26, 9, 0),
+                            "end_at": datetime(2026, 9, 26, 10, 0),
+                            "machine_id": None,
+                            "counts_as_unavailability": True,
+                            "is_planned_stop": False,
+                        },
+                        {
+                            "start_at": datetime(2026, 9, 26, 15, 30),
+                            "end_at": datetime(2026, 9, 26, 16, 30),
+                            "machine_id": None,
+                            "counts_as_unavailability": True,
+                            "is_planned_stop": False,
+                        },
+                    ]
+
+            return Result()
+
+    result = _stop_minutes_for_calendar_row(
+        FakeDB(), date(2026, 9, 26), 1, 1, 480
+    )
+    assert result["unavailability_minutes"] == 90.0
+    assert result["stop_minutes"] == 90.0
+
+
+def test_stop_minutes_include_after_midnight_inside_cross_midnight_shift():
+    from datetime import date, datetime, time
+    from production import _stop_minutes_for_calendar_row
+
+    class FakeDB:
+        def execute(self, sql, params):
+            class Result:
+                def fetchone(self):
+                    return {
+                        "start_time": time(22, 0),
+                        "end_time": time(6, 0),
+                        "crosses_midnight": True,
+                    }
+
+                def fetchall(self):
+                    return [
+                        {
+                            "start_at": datetime(2026, 9, 27, 1, 0),
+                            "end_at": datetime(2026, 9, 27, 2, 30),
+                            "machine_id": None,
+                            "counts_as_unavailability": True,
+                            "is_planned_stop": False,
+                        }
+                    ]
+
+            return Result()
+
+    result = _stop_minutes_for_calendar_row(
+        FakeDB(), date(2026, 9, 26), 1, 1, 480
+    )
+    assert result["unavailability_minutes"] == 90.0
+    assert result["stop_minutes"] == 90.0
