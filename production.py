@@ -2949,8 +2949,9 @@ def planned_time_report():
                 LEFT JOIN production_plan_items i ON i.id=w.plan_item_id
                 LEFT JOIN production_plans p ON p.id=i.plan_id AND p.status='approved'
                 WHERE w.production_date=? AND w.shift_id=?
-                  AND (w.plan_item_id IS NULL OR p.status='approved')
-                  AND (w.plan_item_id IS NULL OR i.station_id=?)
+                  AND w.plan_item_id IS NOT NULL
+                  AND p.status='approved'
+                  AND i.station_id=?
             """, event_params).fetchone()
 
             item = {
