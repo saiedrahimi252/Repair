@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h2>گزارش Performance و Quality</h2>
+      <p class="text-muted mb-0">محاسبه در سطح محصول + ایستگاه؛ Cycle Time بدون حدس‌زدن استفاده می‌شود.</p>
+    </div>
+    <a class="btn btn-secondary" href="{{ url_for('production.dashboard') }}">بازگشت</a>
+  </div>
+
+  <form method="get" class="card p-3 mb-4">
+    <div class="row g-3">
+      <div class="col-md-2"><label class="form-label">از تاریخ</label><input type="date" name="date_from" value="{{ filters.date_from }}" class="form-control"></div>
+      <div class="col-md-2"><label class="form-label">تا تاریخ</label><input type="date" name="date_to" value="{{ filters.date_to }}" class="form-control"></div>
+      <div class="col-md-3"><label class="form-label">محصول</label><select name="product_id" class="form-select"><option value="">همه</option>{% for p in products %}<option value="{{ p.id }}" {% if filters.product_id == (p.id|string) %}selected{% endif %}>{{ p.code }} — {{ p.name }}</option>{% endfor %}</select></div>
+      <div class="col-md-3"><label class="form-label">ایستگاه</label><select name="station_id" class="form-select"><option value="">همه</option>{% for s in stations %}<option value="{{ s.id }}" {% if filters.station_id == (s.id|string) %}selected{% endif %}>{{ s.code }} — {{ s.name }}</option>{% endfor %}</select></div>
+      <div class="col-md-2"><label class="form-label">شیفت</label><select name="shift_id" class="form-select"><option value="">همه</option>{% for sh in shifts %}<option value="{{ sh.id }}" {% if filters.shift_id == (sh.id|string) %}selected{% endif %}>{{ sh.code }} — {{ sh.name }}</option>{% endfor %}</select></div>
+      <div class="col-12"><button class="btn btn-primary">اعمال فیلتر</button><a class="btn btn-outline-secondary" href="{{ url_for('production.performance_quality_report') }}">حذف فیلتر</a></div>
+    </div>
+  </form>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-2"><div class="card p-3"><small>زمان برنامه خالص</small><strong>{{ "%.2f"|format(time_totals.net_planned_minutes) }}</strong></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>زمان قابل‌استفاده</small><strong>{{ "%.2f"|format(time_totals.available_minutes) }}</strong></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>Availability</small><strong>{% if time_totals.availability_percent is not none %}{{ "%.2f"|format(time_totals.availability_percent) }}٪{% else %}—{% endif %}</strong></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>تولید واقعی</small><strong>{{ "%.2f"|format(totals.actual_production) }}</strong></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>تولید خوب</small><strong>{{ "%.2f"|format(totals.good_qty) }}</strong></div></div>
+    <div class="col-md-2"><div class="card p-3"><small>Quality</small><strong>{% if totals.quality_percent is not none %}{{ "%.2f"|format(totals.quality_percent) }}٪{% else %}—{% endif %}</strong></div></div>
+  </div>
+
+  <div class="alert alert-info">
+    Performance فقط وقتی محاسبه می‌شود که Cycle Time معتبر وجود داشته باشد. اگر Cycle Time محصول/ایستگاه موجود نباشد، مقدار «—» نمایش داده می‌شود.
+    Performance برای هر ردیف حداکثر ۱۰۰٪ است.
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-bordered table-striped align-middle">
+      <thead><tr>
+        <th>تاریخ</th><th>شیفت</th><th>محصول</th><th>ایستگاه</th>
+        <th>تولید</th><th>ضایعات</th><th>دوباره‌کاری</th><th>تولید خوب</th>
+        <th>Cycle Time (ثانیه)</th><th>منبع Cycle Time</th><th>زمان قابل‌استفاده</th>
+        <th>Availability</th><th>Quality</th><th>Performance</th>
+      </tr></thead>
+      <tbody>
+      {% for r in rows %}
+        <tr>
+          <td>{{ r.work_date }}</td><td>{{ r.shift_code }} — {{ r.shift_name }}</td>
+          <td>{{ r.product_code }} — {{ r.product_name }}</td>
+          <td>{{ r.station_code }} — {{ r.station_name }}</td>
+          <td>{{ "%.2f"|format(r.actual_production) }}</td>
+          <td>{{ "%.2f"|format(r.waste_qty) }}</td><td>{{ "%.2f"|format(r.rework_qty) }}</td>
+          <td>{{ "%.2f"|format(r.good_qty) }}</td>
+          <td>{% if r.cycle_time_seconds is not none %}{{ "%.2f"|format(r.cycle_time_seconds) }}{% else %}—{% endif %}</td>
+          <td>{% if r.cycle_time_source == "product_station" %}محصول/ایستگاه{% elif r.cycle_time_source == "station" %}پیش‌فرض ایستگاه{% else %}تعریف نشده{% endif %}</td>
+          <td>{{ "%.2f"|format(r.available_minutes) }}</td>
+          <td>{% if r.availability_percent is not none %}{{ "%.2f"|format(r.availability_percent) }}٪{% else %}—{% endif %}</td>
+          <td>{% if r.quality_percent is not none %}{{ "%.2f"|format(r.quality_percent) }}٪{% else %}—{% endif %}</td>
+          <td>{% if r.performance_percent is not none %}{{ "%.2f"|format(r.performance_percent) }}٪{% else %}—{% endif %}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="14" class="text-center">برای فیلتر انتخاب‌شده داده‌ای پیدا نشد.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
