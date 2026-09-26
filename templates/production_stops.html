@@ -5,6 +5,7 @@
   <a class="btn btn-secondary mb-3" href="{{ url_for('production.dashboard') }}">بازگشت</a>
   <div class="card p-3 mb-4">
     <form method="post" class="row g-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="col-md-6"><label class="form-label">آیتم برنامه تأییدشده (اختیاری)</label><select name="plan_item_id" class="form-select"><option value="">بدون اتصال به برنامه</option>{% for item in plan_items %}<option value="{{ item.id }}">{{ item.work_day }} — {{ item.product_code }} / {{ item.product_name }}{% if item.station_name %} — {{ item.station_name }}{% endif %}</option>{% endfor %}</select></div>
       <div class="col-md-3"><label class="form-label">تاریخ</label><input type="date" name="production_date" class="form-control" required></div>
       <div class="col-md-3"><label class="form-label">شیفت</label><select name="shift_id" class="form-select" required><option value="">انتخاب</option>{% for x in shifts %}<option value="{{ x.id }}">{{ x.code }} — {{ x.name }}</option>{% endfor %}</select></div>
