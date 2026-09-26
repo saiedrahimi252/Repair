@@ -2158,7 +2158,7 @@ def planned_time_report():
             ORDER BY c.work_date DESC,sh.code,s.name
         """, params).fetchall()
         rows = []
-        totals = {"planned_minutes":0.0,"stop_minutes":0.0,"unavailability_minutes":0.0,"actual_production":0.0,"waste_qty":0.0,"rework_qty":0.0}
+        totals = {"planned_minutes":0.0,"planned_stop_minutes":0.0,"net_planned_minutes":0.0,"stop_minutes":0.0,"unavailability_minutes":0.0,"actual_production":0.0,"waste_qty":0.0,"rework_qty":0.0}
         for c in calendar_rows:
             event_params=(c["work_date"],c["shift_id"],c["station_id"])
             prod = db.execute("""
@@ -2179,11 +2179,11 @@ def planned_time_report():
             """, event_params).fetchone()
             stops = db.execute("""
                 SELECT COALESCE(SUM(s.duration_minutes),0) stop_minutes,
-                       COALESCE(SUM(CASE WHEN t.counts_as_unavailability=1 THEN s.duration_minutes ELSE 0 END),0) unavailability_minutes
+                       COALESCE(SUM(CASE WHEN t.counts_as_unavailability=1 THEN s.duration_minutes ELSE 0 END),0) unavailability_minutes, COALESCE(SUM(CASE WHEN t.is_planned_stop=1 THEN s.duration_minutes ELSE 0 END),0) planned_stop_minutes
                 FROM production_stops s JOIN production_stop_types t ON t.id=s.stop_type_id
                 WHERE s.production_date=? AND s.shift_id=? AND (s.machine_id IS NULL OR EXISTS (SELECT 1 FROM production_machines m WHERE m.id=s.machine_id AND m.station_id=?))
             """, event_params).fetchone()
-            item={"work_date":c["work_date"],"shift_code":c["shift_code"],"shift_name":c["shift_name"],"station_code":c["station_code"],"station_name":c["station_name"],"is_working":c["is_working"],"planned_minutes":float(c["planned_minutes"] or 0),"stop_minutes":float(stops["stop_minutes"] or 0),"unavailability_minutes":float(stops["unavailability_minutes"] or 0),"actual_production":float(prod or 0),"waste_qty":float(waste["waste_qty"] or 0),"rework_qty":float(waste["rework_qty"] or 0)}
+            item={"work_date":c["work_date"],"shift_code":c["shift_code"],"shift_name":c["shift_name"],"station_code":c["station_code"],"station_name":c["station_name"],"is_working":c["is_working"],"planned_minutes":float(c["planned_minutes"] or 0),"planned_stop_minutes":float(stops["planned_stop_minutes"] or 0),"net_planned_minutes":max(0.0,float(c["planned_minutes"] or 0)-float(stops["planned_stop_minutes"] or 0)),"stop_minutes":float(stops["stop_minutes"] or 0),"unavailability_minutes":float(stops["unavailability_minutes"] or 0),"actual_production":float(prod or 0),"waste_qty":float(waste["waste_qty"] or 0),"rework_qty":float(waste["rework_qty"] or 0)}
             rows.append(item)
             for key in totals: totals[key]+=item[key]
         stations=db.execute("SELECT id,code,name FROM production_stations WHERE is_active=1 ORDER BY name").fetchall()
