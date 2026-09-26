@@ -854,7 +854,7 @@ def production_stops():
 
                 if plan_item_id is not None:
                     item = db.execute(
-                        """SELECT i.id, i.station_id, p.status AS plan_status
+                        """SELECT i.id, i.station_id, i.work_day, p.status AS plan_status
                            FROM production_plan_items i
                            JOIN production_plans p ON p.id = i.plan_id
                            WHERE i.id = ?""",
