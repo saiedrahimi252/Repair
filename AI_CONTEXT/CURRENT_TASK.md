@@ -330,3 +330,12 @@ production_products, production_suppliers, production_raw_materials, production_
 - No Quality or Performance formula was changed.
 - Commit: b13d7fe4c37b692b708af94d1cd3745f140bf242
 - pytest has not been run in the real project environment.
+
+
+### ممیزی Performance در حالت چندمحصولی — 2026-09-26
+- در گزارش `/production/performance-quality` مشخص شد که زمان Available ایستگاه/شیفت برای هر محصول به‌صورت کامل استفاده می‌شد؛ در حالت چند محصول این تخصیص معتبر نیست.
+- Performance در حالت چندمحصولی اکنون عمداً `None` است و دلیل در tooltip ردیف گزارش نمایش داده می‌شود.
+- Quality همچنان در سطح محصول گزارش می‌شود؛ فرمول آن تغییر نکرده است.
+- این رفتار با safeguard موجود در گزارش OEE یکسان شد و از Performance مصنوعی ناشی از تخصیص دوباره زمان مشترک جلوگیری می‌کند.
+- commitها: `84360e8d932fc465a63b4f6e670a645b43b1388e`، `9026befc17d71e1b64c7a796c673ccd58791ea04`، `2ab9c77330b127800d93ecde98b77c64edee4ff5`.
+- pytest اجرا نشده است.
