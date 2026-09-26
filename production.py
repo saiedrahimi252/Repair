@@ -2544,6 +2544,8 @@ def oee_report():
                 GROUP BY i.product_id,p.code,p.name
             """, (cal["work_date"],cal["station_id"],*product_params)).fetchall()
 
+            multiple_products = len(groups) > 1
+
             for g in groups:
                 prod = db.execute("""
                     SELECT COALESCE(SUM(e.quantity),0) qty
@@ -2591,8 +2593,19 @@ def oee_report():
                 waste_qty = float(waste["waste_qty"] or 0)
                 rework_qty = float(waste["rework_qty"] or 0)
                 quality = _calculate_quality(actual,waste_qty,rework_qty)
-                performance = _calculate_performance(actual,cycle,available)
-                oee = _calculate_oee(availability,performance,quality)
+
+                # اگر یک ایستگاه/شیفت/روز چند محصول داشته باشد، زمان Available
+                # مشترک است و نباید کل آن به هر محصول نسبت داده شود.
+                # تا وقتی روش رسمی تخصیص زمان بین محصولات مشخص نشده،
+                # Performance و OEE این ردیف‌ها عمداً قابل محاسبه نیستند.
+                if multiple_products:
+                    performance = None
+                    oee = None
+                    metric_note = "چند محصول در یک ایستگاه/شیفت؛ تخصیص زمان مشترک هنوز تعریف نشده است."
+                else:
+                    performance = _calculate_performance(actual,cycle,available)
+                    oee = _calculate_oee(availability,performance,quality)
+                    metric_note = None
 
                 rows.append({
                     "work_date": cal["work_date"],
@@ -2609,6 +2622,7 @@ def oee_report():
                     "quality_percent": quality,
                     "performance_percent": performance,
                     "oee_percent": oee,
+                    "metric_note": metric_note,
                 })
 
         totals = {
