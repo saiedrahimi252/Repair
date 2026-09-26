@@ -2528,6 +2528,11 @@ def oee_report():
 
         rows = []
         time_totals = {"net_planned_minutes": 0.0, "available_minutes": 0.0}
+        metric_counts = {
+            "valid_oee_rows": 0,
+            "mixed_product_rows": 0,
+            "missing_cycle_time_rows": 0,
+        }
         for cal in calendar_rows:
             planned = float(cal["planned_minutes"] or 0) if cal["is_working"] else 0.0
             stop_info = _stop_minutes_for_calendar_row(
@@ -2608,10 +2613,15 @@ def oee_report():
                     performance = None
                     oee = None
                     metric_note = "چند محصول در یک ایستگاه/شیفت؛ تخصیص زمان مشترک هنوز تعریف نشده است."
+                    metric_counts["mixed_product_rows"] += 1
                 else:
                     performance = _calculate_performance(actual,cycle,available)
                     oee = _calculate_oee(availability,performance,quality)
                     metric_note = None
+                    if cycle is None:
+                        metric_counts["missing_cycle_time_rows"] += 1
+                    if oee is not None:
+                        metric_counts["valid_oee_rows"] += 1
 
                 rows.append({
                     "work_date": cal["work_date"],
@@ -2650,6 +2660,7 @@ def oee_report():
         # Performance کل عمداً محاسبه نمی‌شود: Cycle Time ممکن است بین محصولات متفاوت باشد.
         totals["performance_percent"] = None
         totals["oee_percent"] = None
+        totals.update(metric_counts)
 
         products = db.execute("SELECT id,code,name FROM production_products WHERE is_active=1 ORDER BY name").fetchall()
         stations = db.execute("SELECT id,code,name FROM production_stations WHERE is_active=1 ORDER BY name").fetchall()
