@@ -140,7 +140,9 @@ def _calculate_quality(total_production, waste_qty, rework_qty):
     production = float(total_production or 0)
     waste = float(waste_qty or 0)
     rework = float(rework_qty or 0)
-    if not all(math.isfinite(v) for v in (production, waste, rework)) or production <= 0:
+    if not all(math.isfinite(v) for v in (production, waste, rework)):
+        return None
+    if production <= 0 or waste < 0 or rework < 0:
         return None
     good_qty = max(production - waste - rework, 0.0)
     return min(max(good_qty / production * 100.0, 0.0), 100.0)
