@@ -345,3 +345,10 @@ production_products, production_suppliers, production_raw_materials, production_
 - نام صحیح فیلد Cycle Time در `production_station_products` به `standard_cycle_time_seconds` اصلاح و در سند مرجع OEE ثبت شد.
 - محدودیت چندمحصولی Performance/Quality نیز در سند مرجع صریحاً ثبت شد.
 - commit: `63b274f6bfb75037481aec9517ff942941d19505`.
+
+
+### ممیزی فیلتر محصول و گزارش زمان برنامه‌ریزی‌شده — 2026-09-26
+- در OEE و Performance/Quality، تشخیص «چند محصول در یک ایستگاه/شیفت» اکنون قبل از اعمال فیلتر محصول انجام می‌شود؛ بنابراین انتخاب یک محصول در فیلتر، safeguard چندمحصولی را دور نمی‌زند.
+- در `planned-time-report` ضایعات بدون `plan_item_id` دیگر به هر ایستگاه نسبت داده نمی‌شوند؛ چون چنین رویدادی station مشخصی ندارد و انتساب آن به چند ایستگاه باعث دوباره‌شماری می‌شد. فعلاً این رکوردها از جمع ایستگاهی کنار گذاشته می‌شوند.
+- commitها: `373feafeba095a726361fd38cb552fdc4a299053` و `f6d9eca8cb673d800167c816982dba88d2afb955`.
+- تست خودکار اجرا نشده است.
