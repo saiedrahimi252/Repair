@@ -2121,3 +2121,75 @@ def work_calendar():
         return render_template("production_work_calendar.html",rows=rows,shifts=shifts_rows,stations=stations_rows,filters={"date_from":date_from,"date_to":date_to,"shift_id":shift_filter,"station_id":station_filter})
     finally:
         db.close()
+
+
+@production_bp.route("/planned-time-report", methods=["GET"])
+@roles_required("admin")
+def planned_time_report():
+    """گزارش تجمیعی زمان برنامه‌ریزی‌شده و رخدادهای تولید؛ بدون محاسبه OEE."""
+    db = _db()
+    try:
+        _ensure_work_calendar_table(db)
+        date_from = request.args.get("date_from", "").strip()
+        date_to = request.args.get("date_to", "").strip()
+        station_raw = request.args.get("station_id", "").strip()
+        shift_raw = request.args.get("shift_id", "").strip()
+        conditions = []
+        params = []
+        if date_from:
+            conditions.append("c.work_date >= ?"); params.append(date_from)
+        if date_to:
+            conditions.append("c.work_date <= ?"); params.append(date_to)
+        if station_raw:
+            try: conditions.append("c.station_id = ?"); params.append(int(station_raw))
+            except ValueError: flash("ایستگاه انتخاب‌شده معتبر نیست.", "error"); return redirect(url_for("production.planned_time_report"))
+        if shift_raw:
+            try: conditions.append("c.shift_id = ?"); params.append(int(shift_raw))
+            except ValueError: flash("شیفت انتخاب‌شده معتبر نیست.", "error"); return redirect(url_for("production.planned_time_report"))
+        where_sql = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+        calendar_rows = db.execute(f"""
+            SELECT c.work_date,c.shift_id,c.station_id,c.is_working,c.planned_minutes,
+                   sh.code shift_code,sh.name shift_name,s.code station_code,s.name station_name
+            FROM production_work_calendar c
+            JOIN production_shifts sh ON sh.id=c.shift_id
+            JOIN production_stations s ON s.id=c.station_id
+            {where_sql}
+            ORDER BY c.work_date DESC,sh.code,s.name
+        """, params).fetchall()
+        rows = []
+        totals = {"planned_minutes":0.0,"stop_minutes":0.0,"unavailability_minutes":0.0,"actual_production":0.0,"waste_qty":0.0,"rework_qty":0.0}
+        for c in calendar_rows:
+            event_params=(c["work_date"],c["shift_id"],c["station_id"])
+            prod = db.execute("""
+                SELECT COALESCE(SUM(e.quantity),0) actual_production
+                FROM production_entries e
+                JOIN production_plan_items i ON i.id=e.plan_item_id
+                JOIN production_plans p ON p.id=i.plan_id AND p.status='approved'
+                WHERE e.production_date=? AND e.shift_id=? AND i.station_id=?
+            """, event_params).fetchone()["actual_production"]
+            waste = db.execute("""
+                SELECT COALESCE(SUM(CASE WHEN w.record_type='waste' THEN w.quantity ELSE 0 END),0) waste_qty,
+                       COALESCE(SUM(CASE WHEN w.record_type='rework' THEN w.quantity ELSE 0 END),0) rework_qty
+                FROM production_waste_entries w
+                LEFT JOIN production_plan_items i ON i.id=w.plan_item_id
+                LEFT JOIN production_plans p ON p.id=i.plan_id AND p.status='approved'
+                WHERE w.production_date=? AND w.shift_id=? AND (w.plan_item_id IS NULL OR p.status='approved')
+                  AND (w.plan_item_id IS NULL OR i.station_id=? )
+            """, event_params).fetchone()
+            stops = db.execute("""
+                SELECT COALESCE(SUM(s.duration_minutes),0) stop_minutes,
+                       COALESCE(SUM(CASE WHEN t.counts_as_unavailability=1 THEN s.duration_minutes ELSE 0 END),0) unavailability_minutes
+                FROM production_stops s JOIN production_stop_types t ON t.id=s.stop_type_id
+                WHERE s.production_date=? AND s.shift_id=? AND (s.machine_id IS NULL OR EXISTS (SELECT 1 FROM production_machines m WHERE m.id=s.machine_id AND m.station_id=?))
+            """, event_params).fetchone()
+            item={"work_date":c["work_date"],"shift_code":c["shift_code"],"shift_name":c["shift_name"],"station_code":c["station_code"],"station_name":c["station_name"],"is_working":c["is_working"],"planned_minutes":float(c["planned_minutes"] or 0),"stop_minutes":float(stops["stop_minutes"] or 0),"unavailability_minutes":float(stops["unavailability_minutes"] or 0),"actual_production":float(prod or 0),"waste_qty":float(waste["waste_qty"] or 0),"rework_qty":float(waste["rework_qty"] or 0)}
+            rows.append(item)
+            for key in totals: totals[key]+=item[key]
+        stations=db.execute("SELECT id,code,name FROM production_stations WHERE is_active=1 ORDER BY name").fetchall()
+        shifts=db.execute("SELECT id,code,name FROM production_shifts WHERE is_active=1 ORDER BY code").fetchall()
+        return render_template("production_planned_time_report.html",rows=rows,totals=totals,stations=stations,shifts=shifts,filters={"date_from":date_from,"date_to":date_to,"station_id":station_raw,"shift_id":shift_raw})
+    except Exception as exc:
+        flash(f"گزارش زمان برنامه‌ریزی‌شده ایجاد نشد: {exc}", "error")
+        return redirect(url_for("production.dashboard"))
+    finally:
+        db.close()
