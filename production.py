@@ -549,6 +549,15 @@ def station_products():
                 if waste is not None and waste > 100:
                     raise ValueError("حد مجاز ضایعات باید بین 0 تا 100 درصد باشد.")
 
+                existing = db.execute(
+                    """SELECT id
+                       FROM production_station_products
+                       WHERE station_id = ? AND product_id = ?""",
+                    (station_id, product_id),
+                ).fetchone()
+                if existing is not None:
+                    raise ValueError("این رابطه بین ایستگاه و محصول قبلاً ثبت شده است.")
+
                 db.execute(
                     """INSERT INTO production_station_products
                        (station_id,product_id,standard_cycle_time_seconds,standard_qty_1h,allowed_waste_percent,is_active)
