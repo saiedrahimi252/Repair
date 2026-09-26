@@ -16,15 +16,17 @@
     </div>
   </form>
   <div class="row g-3 mb-4">
-    <div class="col-md-2"><div class="card p-3"><small>زمان برنامه خالص</small><strong>{{ "%.2f"|format(totals.net_planned_minutes) }}</strong></div></div>
-    <div class="col-md-2"><div class="card p-3"><small>زمان قابل‌استفاده</small><strong>{{ "%.2f"|format(totals.available_minutes) }}</strong></div></div>
-    <div class="col-md-2"><div class="card p-3"><small>Availability</small><strong>{% if totals.availability_percent is not none %}{{ "%.2f"|format(totals.availability_percent) }}٪{% else %}—{% endif %}</strong></div></div>
-    <div class="col-md-2"><div class="card p-3"><small>تولید</small><strong>{{ "%.2f"|format(totals.actual_production) }}</strong></div></div>
-    <div class="col-md-2"><div class="card p-3"><small>Quality</small><strong>{% if totals.quality_percent is not none %}{{ "%.2f"|format(totals.quality_percent) }}٪{% else %}—{% endif %}</strong></div></div>
-    <div class="col-md-2"><div class="card p-3"><small>OEE کل</small><strong>—</strong></div></div>
+    <div class="col-md-3"><div class="card p-3 h-100"><small>زمان برنامه خالص</small><strong class="fs-5">{{ "%.2f"|format(totals.net_planned_minutes) }} دقیقه</strong></div></div>
+    <div class="col-md-3"><div class="card p-3 h-100"><small>زمان قابل‌استفاده</small><strong class="fs-5">{{ "%.2f"|format(totals.available_minutes) }} دقیقه</strong></div></div>
+    <div class="col-md-3"><div class="card p-3 h-100"><small>Availability وزنی</small><strong class="fs-5">{% if totals.availability_percent is not none %}{{ "%.2f"|format(totals.availability_percent) }}٪{% else %}—{% endif %}</strong></div></div>
+    <div class="col-md-3"><div class="card p-3 h-100"><small>تولید کل</small><strong class="fs-5">{{ "%.2f"|format(totals.actual_production) }}</strong></div></div>
+    <div class="col-md-3"><div class="card p-3 h-100"><small>Quality وزنی</small><strong class="fs-5">{% if totals.quality_percent is not none %}{{ "%.2f"|format(totals.quality_percent) }}٪{% else %}—{% endif %}</strong></div></div>
+    <div class="col-md-3"><div class="card p-3 h-100"><small>ردیف OEE معتبر</small><strong class="fs-5">{{ totals.valid_oee_rows }}</strong></div></div>
+    <div class="col-md-3"><div class="card p-3 h-100"><small>ردیف‌های چندمحصولی</small><strong class="fs-5">{{ totals.mixed_product_rows }}</strong></div></div>
+    <div class="col-md-3"><div class="card p-3 h-100"><small>بدون Cycle Time معتبر</small><strong class="fs-5">{{ totals.missing_cycle_time_rows }}</strong></div></div>
   </div>
   <div class="alert alert-warning">
-    OEE کلِ بالای صفحه عمداً نمایش داده نمی‌شود، چون Cycle Time محصولات مختلف ممکن است متفاوت باشد. OEE هر ردیف فقط وقتی نمایش داده می‌شود که Availability، Performance و Quality هر سه قابل محاسبه باشند. اگر در یک ایستگاه/شیفت چند محصول وجود داشته باشد، زمان قابل‌استفاده بین محصولات مشترک است و تا تعیین روش رسمی تخصیص زمان، Performance و OEE آن ردیف‌ها «—» می‌ماند.
+    OEE کلِ بالای صفحه عمداً نمایش داده نمی‌شود، چون Cycle Time محصولات مختلف ممکن است متفاوت باشد و تجمیع مستقیم Performance/OEE معتبر نیست. شاخص‌های Availability و Quality در کارت‌های بالا به‌صورت وزنی از کل داده‌های فیلترشده محاسبه شده‌اند. در ردیف‌های چندمحصولی، زمان قابل‌استفاده مشترک است و تا تعیین روش رسمی تخصیص زمان، Performance و OEE «—» می‌ماند؛ ردیف بدون Cycle Time معتبر نیز OEE قابل محاسبه ندارد.
   </div>
   <div class="table-responsive">
     <table class="table table-bordered table-striped align-middle">
