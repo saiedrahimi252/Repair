@@ -181,3 +181,15 @@ production_products, production_suppliers, production_raw_materials, production_
 - این مقدار «زمان قابل‌استفاده تولید» است و هنوز نسبت Availability یا OEE محاسبه نمی‌شود.
 - توقف برنامه‌ریزی‌شده ابتدا از زمان برنامه کسر می‌شود و سپس عدم‌دسترسی غیر برنامه‌ریزی‌شده از زمان باقی‌مانده کسر می‌شود.
 - این تفکیک مبنای مرحله بعدی تعریف رسمی Availability خواهد بود.
+
+
+### پیشرفت جدید — تعریف رسمی Availability — 2026-09-26
+- Availability در گزارش `/production/planned-time-report` اکنون بر مبنای زمان برنامه‌ریزی خالص محاسبه می‌شود.
+- فرمول رسمی فعلی: `Availability % = available_minutes / net_planned_minutes × 100`.
+- `net_planned_minutes = max(planned_minutes - planned_stop_minutes, 0)`.
+- `available_minutes = max(net_planned_minutes - unavailability_minutes, 0)`.
+- مخرج Availability برای روز کاری، زمان برنامه‌ریزی خالص است؛ اگر این مقدار صفر باشد Availability به‌صورت «—» نمایش داده می‌شود و صفرِ مصنوعی تولید نمی‌شود.
+- برای روزهای غیرکاری، حتی اگر داده قدیمی `planned_minutes` داشته باشد، زمان برنامه‌ریزی و Availability برابر صفر/غیرقابل‌محاسبه در نظر گرفته می‌شود.
+- Availability کل گزارش به‌صورت weighted calculation از مجموع `available_minutes / net_planned_minutes` محاسبه می‌شود تا یک روز کوتاه یا بلند وزن مساوی اشتباه نگیرد.
+- نسخه تکراری و بلااستفاده تابع `planned_time_report` از انتهای `production.py` حذف شد تا فقط یک پیاده‌سازی مرجع برای این route باقی بماند.
+- OEE هنوز عمداً محاسبه نمی‌شود؛ مرحله بعد باید قبل از پیاده‌سازی OEE، تعریف Performance، Quality و رفتار آنها در حالت‌های بدون تولید/بدون Cycle Time را تثبیت کند.
