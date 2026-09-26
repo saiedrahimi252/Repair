@@ -56,3 +56,12 @@ def test_oee_basic():
 
 def test_oee_is_capped_at_100():
     assert _calculate_oee(110, 110, 110) == 100.0
+
+
+def test_quality_rejects_negative_waste_or_rework():
+    assert _calculate_quality(100, -1, 0) is None
+    assert _calculate_quality(100, 0, -1) is None
+
+
+def test_quality_rejects_negative_production():
+    assert _calculate_quality(-1, 0, 0) is None
