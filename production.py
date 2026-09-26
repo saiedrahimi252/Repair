@@ -97,6 +97,11 @@ def _merged_interval_minutes(intervals):
     return max(0.0, total)
 
 
+def _stop_counts_as_unavailability(stop):
+    """توقف برنامه‌ریزی‌شده حتی اگر فلگ unavailability داشته باشد، عدم‌دسترسی OEE نیست."""
+    return bool(stop["counts_as_unavailability"]) and not bool(stop["is_planned_stop"])
+
+
 def _stop_minutes_for_calendar_row(db, work_date, shift_id, station_id, planned_minutes):
     """توقف‌ها را فقط داخل پنجره برنامه‌ریزی‌شده و بدون دوباره‌شماری محاسبه می‌کند."""
     from datetime import datetime, timedelta
@@ -1975,7 +1980,7 @@ def production_control():
                 stop_by_item.setdefault(key, {"all": [], "unavailability": []})
                 interval = (stop["start_at"], stop["end_at"])
                 stop_by_item[key]["all"].append(interval)
-                if stop["counts_as_unavailability"] and not stop["is_planned_stop"]:
+                if _stop_counts_as_unavailability(stop):
                     stop_by_item[key]["unavailability"].append(interval)
 
             for key, groups in stop_by_item.items():
