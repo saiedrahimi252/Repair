@@ -41,6 +41,44 @@ def _ensure_work_calendar_table(db):
     db.commit()
 
 
+def _merge_intervals(intervals):
+    """اتحاد بازه‌ها را به‌صورت لیست بازه‌های غیرهم‌پوشان برمی‌گرداند."""
+    if not intervals:
+        return []
+    merged = []
+    for start, end in sorted(intervals, key=lambda x: x[0]):
+        if end <= start:
+            continue
+        if not merged or start > merged[-1][1]:
+            merged.append([start, end])
+        elif end > merged[-1][1]:
+            merged[-1][1] = end
+    return [(start, end) for start, end in merged]
+
+
+def _subtract_intervals(intervals, blockers):
+    """بازه‌های intervals را از blockers کم می‌کند."""
+    if not intervals:
+        return []
+    blockers = _merge_intervals(blockers)
+    result = []
+    for start, end in intervals:
+        cursor = start
+        for block_start, block_end in blockers:
+            if block_end <= cursor:
+                continue
+            if block_start >= end:
+                break
+            if block_start > cursor:
+                result.append((cursor, min(block_start, end)))
+            cursor = max(cursor, block_end)
+            if cursor >= end:
+                break
+        if cursor < end:
+            result.append((cursor, end))
+    return result
+
+
 def _merged_interval_minutes(intervals):
     """مجموع طول اتحاد بازه‌ها؛ هم‌پوشانی‌ها فقط یک‌بار شمرده می‌شوند."""
     if not intervals:
@@ -128,10 +166,15 @@ def _stop_minutes_for_calendar_row(db, work_date, shift_id, station_id, planned_
         if row["counts_as_unavailability"] and not row["is_planned_stop"]:
             unavailability_intervals.append(interval)
 
+    planned_union = _merge_intervals(planned_intervals)
+    unavailability_exclusive = _subtract_intervals(
+        unavailability_intervals, planned_union
+    )
+
     return {
         "stop_minutes": _merged_interval_minutes(all_intervals),
-        "planned_stop_minutes": _merged_interval_minutes(planned_intervals),
-        "unavailability_minutes": _merged_interval_minutes(unavailability_intervals),
+        "planned_stop_minutes": _merged_interval_minutes(planned_union),
+        "unavailability_minutes": _merged_interval_minutes(unavailability_exclusive),
     }
 
 
