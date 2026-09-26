@@ -407,3 +407,11 @@ production_products, production_suppliers, production_raw_materials, production_
 - فرمول Quality تغییر نکرده است.
 - commit: 3bd067e54da778746892bf9a41dd56841d7e7eab
 - pytest واقعی روی Windows Server هنوز اجرا نشده است.
+
+
+### پیشرفت جدید — همسان‌سازی Control با قواعد OEE — 2026-09-26
+- در گزارش Control، توقف‌های `is_planned_stop=1` دیگر به‌عنوان unavailability شمرده نمی‌شوند؛ حتی اگر `counts_as_unavailability=1` باشند.
+- طبقه‌بندی توقف در helper مشترک `_stop_counts_as_unavailability` متمرکز شد.
+- migration ستون `production_stop_types.is_planned_stop` اکنون در `get_connection()` برای دیتابیس‌های قدیمی اجرا می‌شود.
+- تست واحد برای این قاعده اضافه شد.
+- runtime pytest روی Windows Server هنوز اجرا نشده است.
