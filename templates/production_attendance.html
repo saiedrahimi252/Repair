@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>حضور و وضعیت پرسنل تولید</h2>
+    <a class="btn btn-outline-secondary" href="{{ url_for('production.dashboard') }}">بازگشت به داشبورد تولید</a>
+  </div>
+
+  <div class="card p-3 mb-4">
+    <h5>ثبت حضور</h5>
+    <form method="post" class="row g-2">
+      <div class="col-md-2">
+        <label class="form-label">تاریخ کاری</label>
+        <input type="date" name="attendance_date" class="form-control" required>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">شیفت</label>
+        <select name="shift_id" class="form-select" required>
+          <option value="">انتخاب کنید</option>
+          {% for s in shifts %}
+            <option value="{{ s.id }}">{{ s.code }} - {{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">پرسنل</label>
+        <select name="employee_id" class="form-select" required>
+          <option value="">انتخاب کنید</option>
+          {% for e in employees %}
+            <option value="{{ e.id }}">{{ e.personnel_code }} - {{ e.full_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">وضعیت</label>
+        <select name="status" class="form-select" required>
+          <option value="present">حاضر</option>
+          <option value="absent">غایب</option>
+          <option value="leave">مرخصی</option>
+          <option value="off">تعطیل / استراحت</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">شروع حضور</label>
+        <input type="datetime-local" name="start_at" class="form-control">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">پایان حضور</label>
+        <input type="datetime-local" name="end_at" class="form-control">
+      </div>
+      <div class="col-md-8">
+        <label class="form-label">توضیحات</label>
+        <input type="text" name="notes" class="form-control">
+      </div>
+      <div class="col-md-2 d-flex align-items-end">
+        <button class="btn btn-primary w-100" type="submit">ثبت</button>
+      </div>
+    </form>
+    <div class="alert alert-secondary mt-3 mb-0">
+      فعلاً فقط رویداد حضور/غیبت و زمان ثبت‌شده نگهداری می‌شود؛ محاسبه زمان مفید، اضافه‌کاری و OEE عمداً به مرحله بعد موکول شده است.
+    </div>
+  </div>
+
+  <div class="card p-3 mb-4">
+    <h5>فیلتر</h5>
+    <form method="get" class="row g-2">
+      <div class="col-md-2">
+        <label class="form-label">از تاریخ</label>
+        <input type="date" name="date_from" value="{{ filters.date_from }}" class="form-control">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">تا تاریخ</label>
+        <input type="date" name="date_to" value="{{ filters.date_to }}" class="form-control">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">شیفت</label>
+        <select name="shift_id" class="form-select">
+          <option value="">همه</option>
+          {% for s in shifts %}
+            <option value="{{ s.id }}" {% if filters.shift_id == s.id|string %}selected{% endif %}>{{ s.code }} - {{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">پرسنل</label>
+        <select name="employee_id" class="form-select">
+          <option value="">همه</option>
+          {% for e in employees %}
+            <option value="{{ e.id }}" {% if filters.employee_id == e.id|string %}selected{% endif %}>{{ e.personnel_code }} - {{ e.full_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2 d-flex align-items-end">
+        <button class="btn btn-outline-primary w-100" type="submit">اعمال فیلتر</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-striped table-bordered align-middle">
+      <thead>
+        <tr>
+          <th>تاریخ</th>
+          <th>شیفت</th>
+          <th>پرسنل</th>
+          <th>وضعیت</th>
+          <th>شروع</th>
+          <th>پایان</th>
+          <th>توضیحات</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>{{ row.attendance_date }}</td>
+          <td>{{ row.shift_code }} - {{ row.shift_name }}</td>
+          <td>{{ row.personnel_code }} - {{ row.employee_name }}</td>
+          <td>
+            {% if row.status == 'present' %}حاضر
+            {% elif row.status == 'absent' %}غایب
+            {% elif row.status == 'leave' %}مرخصی
+            {% else %}تعطیل / استراحت{% endif %}
+          </td>
+          <td>{{ row.start_at or '-' }}</td>
+          <td>{{ row.end_at or '-' }}</td>
+          <td>{{ row.notes or '-' }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" class="text-center">رکوردی وجود ندارد.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
