@@ -2363,11 +2363,17 @@ def performance_quality_report():
                 raise ValueError(f"{label} نامعتبر است.")
 
         try:
+            parsed_date_from = _parse_iso_date(date_from, "تاریخ شروع") if date_from else None
+            parsed_date_to = _parse_iso_date(date_to, "تاریخ پایان") if date_to else None
             product_id = _optional_int(product_raw, "محصول")
             station_id = _optional_int(station_raw, "ایستگاه")
             shift_id = _optional_int(shift_raw, "شیفت")
-            if date_from and date_to and date_from > date_to:
+            if parsed_date_from and parsed_date_to and parsed_date_from > parsed_date_to:
                 raise ValueError("تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد.")
+            if parsed_date_from:
+                date_from = parsed_date_from.isoformat()
+            if parsed_date_to:
+                date_to = parsed_date_to.isoformat()
         except ValueError as exc:
             flash(str(exc), "error")
             return redirect(url_for("production.performance_quality_report"))
