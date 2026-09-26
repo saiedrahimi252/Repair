@@ -399,3 +399,11 @@ production_products, production_suppliers, production_raw_materials, production_
 - تست‌های رگرسیون برای aggregation گزارش OEE اضافه شد: approved-only، چند Plan Item بدون double-count، حذف event بدون plan_item_id و عدم اختلاط محصول/ایستگاه.
 - commit: daab9f01c3796c4986abb80ed2d9d8863919c260
 - pytest واقعی روی Windows Server هنوز اجرا نشده است.
+
+
+### ممیزی aggregation ضایعات/دوباره‌کاری — 2026-09-26
+- Query گزارش Performance/Quality از نظر approved-only برای waste/rework بررسی شد و با OEE هم‌راستا است.
+- aggregation بر اساس plan_item_id در تست‌های رگرسیون پوشش داده شد: چند Plan Item، حذف plan غیر approved و حذف event بدون plan_item_id.
+- فرمول Quality تغییر نکرده است.
+- commit: 3bd067e54da778746892bf9a41dd56841d7e7eab
+- pytest واقعی روی Windows Server هنوز اجرا نشده است.
