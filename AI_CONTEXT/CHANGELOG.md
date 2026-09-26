@@ -1,3 +1,10 @@
+## [2026-09-26] — تست رگرسیون aggregation گزارش‌های تولید
+- فایل `tests/test_production_report_aggregation.py` اضافه شد.
+- aggregation مورد استفاده OEE از نظر approved-only، چند Plan Item، حذف event بدون `plan_item_id` و تفکیک محصول/ایستگاه تست شد.
+- این تست‌ها از double-count ناشی از joinهای چندمرحله‌ای جلوگیری می‌کنند.
+- تست‌ها با SQLite in-memory اجراشدنی طراحی شده‌اند، اما pytest در محیط واقعی Windows/SQL Server هنوز اجرا نشده است.
+- commit: daab9f01c3796c4986abb80ed2d9d8863919c260
+
 # Changelog
 
 ## [2026-09-25] — ثبت برنامه پیاده‌سازی مرحله‌ای ماژول تولید
