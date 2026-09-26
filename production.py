@@ -2560,22 +2560,36 @@ def oee_report():
             multiple_products = len(groups) > 1
 
             for g in groups:
+                # رویدادها مستقیماً بر اساس plan_item خودشان تجمیع می‌شوند.
+                # بنابراین اگر یک محصول در چند plan_item مجزا برای همان روز/ایستگاه
+                # وجود داشته باشد، هر entry فقط یک‌بار شمرده می‌شود و join چندبه‌چند
+                # باعث تکثیر quantity نمی‌شود.
                 prod = db.execute("""
-                    SELECT COALESCE(SUM(e.quantity),0) qty
-                    FROM production_entries e
-                    JOIN production_plan_items i ON i.id=e.plan_item_id
-                    JOIN production_plans p ON p.id=i.plan_id AND p.status='approved'
-                    WHERE e.production_date=? AND e.shift_id=?
-                      AND i.work_day=? AND i.station_id=? AND i.product_id=?
+                    SELECT COALESCE(SUM(q.qty),0) qty
+                    FROM (
+                        SELECT e.plan_item_id, SUM(e.quantity) AS qty
+                        FROM production_entries e
+                        JOIN production_plan_items i ON i.id=e.plan_item_id
+                        JOIN production_plans p ON p.id=i.plan_id AND p.status='approved'
+                        WHERE e.production_date=? AND e.shift_id=?
+                          AND i.work_day=? AND i.station_id=? AND i.product_id=?
+                        GROUP BY e.plan_item_id
+                    ) q
                 """, (cal["work_date"],cal["shift_id"],cal["work_date"],cal["station_id"],g["product_id"])).fetchone()["qty"]
                 waste = db.execute("""
-                    SELECT COALESCE(SUM(CASE WHEN w.record_type='waste' THEN w.quantity ELSE 0 END),0) waste_qty,
-                           COALESCE(SUM(CASE WHEN w.record_type='rework' THEN w.quantity ELSE 0 END),0) rework_qty
-                    FROM production_waste_entries w
-                    JOIN production_plan_items i ON i.id=w.plan_item_id
-                    JOIN production_plans p ON p.id=i.plan_id AND p.status='approved'
-                    WHERE w.production_date=? AND w.shift_id=?
-                      AND i.work_day=? AND i.station_id=? AND i.product_id=?
+                    SELECT COALESCE(SUM(q.waste_qty),0) waste_qty,
+                           COALESCE(SUM(q.rework_qty),0) rework_qty
+                    FROM (
+                        SELECT w.plan_item_id,
+                               SUM(CASE WHEN w.record_type='waste' THEN w.quantity ELSE 0 END) waste_qty,
+                               SUM(CASE WHEN w.record_type='rework' THEN w.quantity ELSE 0 END) rework_qty
+                        FROM production_waste_entries w
+                        JOIN production_plan_items i ON i.id=w.plan_item_id
+                        JOIN production_plans p ON p.id=i.plan_id AND p.status='approved'
+                        WHERE w.production_date=? AND w.shift_id=?
+                          AND i.work_day=? AND i.station_id=? AND i.product_id=?
+                        GROUP BY w.plan_item_id
+                    ) q
                 """, (cal["work_date"],cal["shift_id"],cal["work_date"],cal["station_id"],g["product_id"])).fetchone()
 
                 standard = db.execute("""
