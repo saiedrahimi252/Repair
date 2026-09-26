@@ -2456,6 +2456,197 @@ def performance_quality_report():
         db.close()
 
 
+@production_bp.route("/oee", methods=["GET"])
+@roles_required("admin")
+def oee_report():
+    """گزارش OEE در سطح محصول+ایستگاه؛ بدون Cycle Time ساختگی یا تجمیع نامعتبر."""
+    db = _db()
+    try:
+        _ensure_work_calendar_table(db)
+        from datetime import date
+
+        date_from = request.args.get("date_from", "").strip()
+        date_to = request.args.get("date_to", "").strip()
+        product_raw = request.args.get("product_id", "").strip()
+        station_raw = request.args.get("station_id", "").strip()
+        shift_raw = request.args.get("shift_id", "").strip()
+
+        if not date_from and not date_to:
+            today = date.today().isoformat()
+            date_from = date_to = today
+        elif date_from and not date_to:
+            date_to = date_from
+        elif date_to and not date_from:
+            date_from = date_to
+
+        def _optional_int(raw, label):
+            if not raw:
+                return None
+            try:
+                return int(raw)
+            except ValueError:
+                raise ValueError(f"{label} نامعتبر است.")
+
+        try:
+            product_id = _optional_int(product_raw, "محصول")
+            station_id = _optional_int(station_raw, "ایستگاه")
+            shift_id = _optional_int(shift_raw, "شیفت")
+            if date_from and date_to and date_from > date_to:
+                raise ValueError("تاریخ شروع نمی‌تواند بعد از تاریخ پایان باشد.")
+        except ValueError as exc:
+            flash(str(exc), "error")
+            return redirect(url_for("production.oee_report"))
+
+        filters = []
+        params = []
+        if date_from:
+            filters.append("c.work_date >= ?"); params.append(date_from)
+        if date_to:
+            filters.append("c.work_date <= ?"); params.append(date_to)
+        if station_id is not None:
+            filters.append("c.station_id = ?"); params.append(station_id)
+        if shift_id is not None:
+            filters.append("c.shift_id = ?"); params.append(shift_id)
+        where_sql = " AND ".join(filters)
+
+        calendar_rows = db.execute(f"""
+            SELECT c.work_date,c.shift_id,c.station_id,c.is_working,c.planned_minutes,
+                   sh.code shift_code,sh.name shift_name,
+                   s.code station_code,s.name station_name
+            FROM production_work_calendar c
+            JOIN production_shifts sh ON sh.id=c.shift_id
+            JOIN production_stations s ON s.id=c.station_id
+            WHERE {where_sql}
+            ORDER BY c.work_date DESC,sh.code,s.name
+        """, params).fetchall()
+
+        rows = []
+        time_totals = {"net_planned_minutes": 0.0, "available_minutes": 0.0}
+        for cal in calendar_rows:
+            planned = float(cal["planned_minutes"] or 0) if cal["is_working"] else 0.0
+            stop_info = _stop_minutes_for_calendar_row(
+                db, cal["work_date"], cal["shift_id"], cal["station_id"], planned
+            )
+            net_planned = max(planned - stop_info["planned_stop_minutes"], 0.0)
+            available = max(net_planned - stop_info["unavailability_minutes"], 0.0)
+            availability = available / net_planned * 100.0 if net_planned > 0 else None
+            time_totals["net_planned_minutes"] += net_planned
+            time_totals["available_minutes"] += available
+
+            product_filter = " AND i.product_id = ?" if product_id is not None else ""
+            product_params = (product_id,) if product_id is not None else ()
+            groups = db.execute(f"""
+                SELECT i.product_id,p.code AS product_code,p.name AS product_name
+                FROM production_plan_items i
+                JOIN production_plans pl ON pl.id=i.plan_id AND pl.status='approved'
+                JOIN production_products p ON p.id=i.product_id
+                WHERE i.work_day=? AND i.station_id=? {product_filter}
+                GROUP BY i.product_id,p.code,p.name
+            """, (cal["work_date"],cal["station_id"],*product_params)).fetchall()
+
+            for g in groups:
+                prod = db.execute("""
+                    SELECT COALESCE(SUM(e.quantity),0) qty
+                    FROM production_entries e
+                    JOIN production_plan_items i ON i.id=e.plan_item_id
+                    JOIN production_plans p ON p.id=i.plan_id AND p.status='approved'
+                    WHERE e.production_date=? AND e.shift_id=?
+                      AND i.work_day=? AND i.station_id=? AND i.product_id=?
+                """, (cal["work_date"],cal["shift_id"],cal["work_date"],cal["station_id"],g["product_id"])).fetchone()["qty"]
+                waste = db.execute("""
+                    SELECT COALESCE(SUM(CASE WHEN w.record_type='waste' THEN w.quantity ELSE 0 END),0) waste_qty,
+                           COALESCE(SUM(CASE WHEN w.record_type='rework' THEN w.quantity ELSE 0 END),0) rework_qty
+                    FROM production_waste_entries w
+                    JOIN production_plan_items i ON i.id=w.plan_item_id
+                    JOIN production_plans p ON p.id=i.plan_id AND p.status='approved'
+                    WHERE w.production_date=? AND w.shift_id=?
+                      AND i.work_day=? AND i.station_id=? AND i.product_id=?
+                """, (cal["work_date"],cal["shift_id"],cal["work_date"],cal["station_id"],g["product_id"])).fetchone()
+
+                standard = db.execute("""
+                    SELECT sp.standard_cycle_time_seconds AS product_cycle,
+                           s.cycle_time_seconds AS station_cycle
+                    FROM production_stations s
+                    LEFT JOIN production_station_products sp
+                      ON sp.station_id=s.id AND sp.product_id=? AND sp.is_active=1
+                    WHERE s.id=?
+                """, (g["product_id"],cal["station_id"])).fetchone()
+                cycle = None
+                cycle_source = None
+                if standard:
+                    for candidate, source in (
+                        (standard["product_cycle"], "product_station"),
+                        (standard["station_cycle"], "station"),
+                    ):
+                        try:
+                            value = float(candidate)
+                            if math.isfinite(value) and value > 0:
+                                cycle = value
+                                cycle_source = source
+                                break
+                        except (TypeError,ValueError):
+                            pass
+
+                actual = float(prod or 0)
+                waste_qty = float(waste["waste_qty"] or 0)
+                rework_qty = float(waste["rework_qty"] or 0)
+                quality = _calculate_quality(actual,waste_qty,rework_qty)
+                performance = _calculate_performance(actual,cycle,available)
+                oee = _calculate_oee(availability,performance,quality)
+
+                rows.append({
+                    "work_date": cal["work_date"],
+                    "shift_code": cal["shift_code"], "shift_name": cal["shift_name"],
+                    "station_code": cal["station_code"], "station_name": cal["station_name"],
+                    "product_code": g["product_code"], "product_name": g["product_name"],
+                    "actual_production": actual, "waste_qty": waste_qty,
+                    "rework_qty": rework_qty,
+                    "good_qty": max(actual-waste_qty-rework_qty,0.0),
+                    "cycle_time_seconds": cycle, "cycle_time_source": cycle_source,
+                    "net_planned_minutes": net_planned,
+                    "available_minutes": available,
+                    "availability_percent": availability,
+                    "quality_percent": quality,
+                    "performance_percent": performance,
+                    "oee_percent": oee,
+                })
+
+        totals = {
+            "actual_production": sum(r["actual_production"] for r in rows),
+            "waste_qty": sum(r["waste_qty"] for r in rows),
+            "rework_qty": sum(r["rework_qty"] for r in rows),
+            "good_qty": sum(r["good_qty"] for r in rows),
+            "net_planned_minutes": time_totals["net_planned_minutes"],
+            "available_minutes": time_totals["available_minutes"],
+        }
+        totals["availability_percent"] = (
+            totals["available_minutes"] / totals["net_planned_minutes"] * 100.0
+            if totals["net_planned_minutes"] > 0 else None
+        )
+        totals["quality_percent"] = (
+            totals["good_qty"] / totals["actual_production"] * 100.0
+            if totals["actual_production"] > 0 else None
+        )
+        # Performance کل عمداً محاسبه نمی‌شود: Cycle Time ممکن است بین محصولات متفاوت باشد.
+        totals["performance_percent"] = None
+        totals["oee_percent"] = None
+
+        products = db.execute("SELECT id,code,name FROM production_products WHERE is_active=1 ORDER BY name").fetchall()
+        stations = db.execute("SELECT id,code,name FROM production_stations WHERE is_active=1 ORDER BY name").fetchall()
+        shifts = db.execute("SELECT id,code,name FROM production_shifts WHERE is_active=1 ORDER BY code").fetchall()
+        return render_template(
+            "production_oee.html", rows=rows, totals=totals,
+            products=products, stations=stations, shifts=shifts,
+            filters={"date_from":date_from,"date_to":date_to,
+                     "product_id":product_raw,"station_id":station_raw,"shift_id":shift_raw},
+        )
+    except Exception as exc:
+        flash(f"گزارش OEE ایجاد نشد: {exc}", "error")
+        return redirect(url_for("production.dashboard"))
+    finally:
+        db.close()
+
+
 @production_bp.route("/work-calendar", methods=["GET", "POST"])
 @roles_required("admin")
 def work_calendar():
