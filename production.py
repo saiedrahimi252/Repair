@@ -92,8 +92,14 @@ def _stop_minutes_for_calendar_row(db, work_date, shift_id, station_id, planned_
             "unavailability_minutes": 0.0,
         }
 
+    # توقف‌های بدون ماشین روی کل ایستگاه اثر دارند.
+    # توقف ماشینی فقط زمانی روی Availability ایستگاه اثر می‌گذارد که
+    # ایستگاه در آن بازه عملاً به همان ماشین وابسته باشد.
+    # تا وقتی ظرفیت/قابلیت تولید موازی ماشین‌ها مدل نشده، این تابع
+    # محافظه‌کارانه رفتار می‌کند و توقف هر ماشین متعلق به ایستگاه را
+    # توقف ایستگاه در نظر می‌گیرد؛ این محدودیت در تعریف OEE ثبت شده است.
     stop_rows = db.execute(
-        """SELECT s.start_at,s.end_at,
+        """SELECT s.start_at,s.end_at,s.machine_id,
                   t.counts_as_unavailability,t.is_planned_stop
            FROM production_stops s
            JOIN production_stop_types t ON t.id=s.stop_type_id
