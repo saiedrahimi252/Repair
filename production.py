@@ -1096,6 +1096,141 @@ def delete_plan_item(plan_id, item_id):
         db.close()
 
 
+@production_bp.route("/attendance", methods=["GET", "POST"])
+@roles_required("admin")
+def attendance():
+    """ثبت و مشاهده حضور و وضعیت نیروی تولید؛ بدون محاسبه زمان مفید/OEE."""
+    db = _db()
+    try:
+        if request.method == "POST":
+            attendance_date = request.form.get("attendance_date", "").strip()
+            shift_id_raw = request.form.get("shift_id", "").strip()
+            employee_id_raw = request.form.get("employee_id", "").strip()
+            status = request.form.get("status", "").strip().lower()
+            start_at = request.form.get("start_at", "").strip() or None
+            end_at = request.form.get("end_at", "").strip() or None
+            notes = request.form.get("notes", "").strip() or None
+
+            allowed_statuses = {"present", "absent", "leave", "off"}
+            if not attendance_date or not shift_id_raw or not employee_id_raw or status not in allowed_statuses:
+                flash("تاریخ، شیفت، پرسنل و وضعیت حضور الزامی است.", "error")
+                return redirect(url_for("production.attendance"))
+
+            try:
+                shift_id = int(shift_id_raw)
+                employee_id = int(employee_id_raw)
+
+                shift = db.execute(
+                    "SELECT id FROM production_shifts WHERE id = ? AND is_active = 1",
+                    (shift_id,),
+                ).fetchone()
+                if shift is None:
+                    raise ValueError("شیفت انتخاب‌شده معتبر نیست.")
+
+                employee = db.execute(
+                    "SELECT id FROM production_employees WHERE id = ? AND is_active = 1",
+                    (employee_id,),
+                ).fetchone()
+                if employee is None:
+                    raise ValueError("پرسنل انتخاب‌شده معتبر نیست.")
+
+                if start_at and end_at:
+                    from datetime import datetime
+                    start_dt = datetime.fromisoformat(start_at)
+                    end_dt = datetime.fromisoformat(end_at)
+                    if end_dt < start_dt:
+                        raise ValueError("زمان پایان نمی‌تواند قبل از زمان شروع باشد.")
+
+                db.execute(
+                    """INSERT INTO production_attendance
+                       (attendance_date,shift_id,employee_id,status,start_at,end_at,notes,created_by)
+                       VALUES (?,?,?,?,?,?,?,?)""",
+                    (
+                        attendance_date,
+                        shift_id,
+                        employee_id,
+                        status,
+                        start_at,
+                        end_at,
+                        notes,
+                        session.get("user_id"),
+                    ),
+                )
+                db.commit()
+                flash("رکورد حضور تولید با موفقیت ثبت شد.", "success")
+            except Exception as exc:
+                db.rollback()
+                flash(f"ثبت حضور انجام نشد: {exc}", "error")
+            return redirect(url_for("production.attendance"))
+
+        date_from = request.args.get("date_from", "").strip()
+        date_to = request.args.get("date_to", "").strip()
+        shift_id_raw = request.args.get("shift_id", "").strip()
+        employee_id_raw = request.args.get("employee_id", "").strip()
+
+        filters = []
+        params = []
+        if date_from:
+            filters.append("a.attendance_date >= ?")
+            params.append(date_from)
+        if date_to:
+            filters.append("a.attendance_date <= ?")
+            params.append(date_to)
+        if shift_id_raw:
+            try:
+                shift_filter = int(shift_id_raw)
+                filters.append("a.shift_id = ?")
+                params.append(shift_filter)
+            except ValueError:
+                flash("شیفت فیلترشده معتبر نیست.", "error")
+                return redirect(url_for("production.attendance"))
+        if employee_id_raw:
+            try:
+                employee_filter = int(employee_id_raw)
+                filters.append("a.employee_id = ?")
+                params.append(employee_filter)
+            except ValueError:
+                flash("پرسنل فیلترشده معتبر نیست.", "error")
+                return redirect(url_for("production.attendance"))
+
+        where_sql = ("WHERE " + " AND ".join(filters)) if filters else ""
+
+        rows = db.execute(
+            f"""SELECT a.id, a.attendance_date, a.status, a.start_at, a.end_at,
+                       a.notes, a.created_at,
+                       sh.code AS shift_code, sh.name AS shift_name,
+                       e.personnel_code, e.full_name AS employee_name
+                FROM production_attendance a
+                JOIN production_shifts sh ON sh.id = a.shift_id
+                JOIN production_employees e ON e.id = a.employee_id
+                {where_sql}
+                ORDER BY a.attendance_date DESC, sh.code, e.full_name, a.id DESC""",
+            params,
+        ).fetchall()
+
+        shifts_rows = db.execute(
+            "SELECT id, code, name FROM production_shifts WHERE is_active = 1 ORDER BY code"
+        ).fetchall()
+        employees_rows = db.execute(
+            "SELECT id, personnel_code, full_name FROM production_employees WHERE is_active = 1 ORDER BY full_name"
+        ).fetchall()
+
+        return render_template(
+            "production_attendance.html",
+            rows=rows,
+            shifts=shifts_rows,
+            employees=employees_rows,
+            filters={
+                "date_from": date_from,
+                "date_to": date_to,
+                "shift_id": shift_id_raw,
+                "employee_id": employee_id_raw,
+            },
+        )
+    finally:
+        db.close()
+
+
 @production_bp.route("/control")
 @roles_required("admin")
 def production_control():
