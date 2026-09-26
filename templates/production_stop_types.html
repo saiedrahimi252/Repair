@@ -8,17 +8,17 @@
       <div class="col-md-3"><label class="form-label">کد</label><input name="code" class="form-control" required></div>
       <div class="col-md-4"><label class="form-label">نام</label><input name="name" class="form-control" required></div>
       <div class="col-md-3"><label class="form-label">دسته</label><input name="category" class="form-control"></div>
-      <div class="col-md-2"><label class="form-label">در عدم دسترسی OEE محاسبه شود؟</label><select name="counts_as_unavailability" class="form-select"><option value="1">بله</option><option value="0">خیر</option></select></div>
+      <div class="col-md-2"><label class="form-label">از زمان قابل‌دسترس کسر شود؟</label><select name="counts_as_unavailability" class="form-select"><option value="1">بله</option><option value="0">خیر</option></select></div><div class="col-md-2"><label class="form-label">توقف برنامه‌ریزی‌شده است؟</label><select name="is_planned_stop" class="form-select"><option value="0">خیر</option><option value="1">بله</option></select></div>
       <div class="col-12"><button class="btn btn-primary">ثبت نوع توقف</button></div>
     </form>
   </div>
   <table class="table table-striped">
-    <thead><tr><th>کد</th><th>نام</th><th>دسته</th><th>عدم دسترسی</th><th>فعال</th></tr></thead>
+    <thead><tr><th>کد</th><th>نام</th><th>دسته</th><th>کسر از زمان</th><th>برنامه‌ریزی‌شده</th><th>فعال</th></tr></thead>
     <tbody>
     {% for row in rows %}
-      <tr><td>{{ row.code }}</td><td>{{ row.name }}</td><td>{{ row.category or '-' }}</td><td>{{ 'بله' if row.counts_as_unavailability else 'خیر' }}</td><td>{{ 'بله' if row.is_active else 'خیر' }}</td></tr>
+      <tr><td>{{ row.code }}</td><td>{{ row.name }}</td><td>{{ row.category or '-' }}</td><td>{{ 'بله' if row.counts_as_unavailability else 'خیر' }}</td><td>{{ 'بله' if row.is_planned_stop else 'خیر' }}</td><td>{{ 'بله' if row.is_active else 'خیر' }}</td></tr>
     {% else %}
-      <tr><td colspan="5" class="text-center">هنوز نوع توقفی ثبت نشده است.</td></tr>
+      <tr><td colspan="6" class="text-center">هنوز نوع توقفی ثبت نشده است.</td></tr>
     {% endfor %}
     </tbody>
   </table>
